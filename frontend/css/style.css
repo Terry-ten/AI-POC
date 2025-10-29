@@ -703,6 +703,39 @@ body {
 }
 
 /* ========================================
+   漏洞信息块
+   ======================================== */
+
+.vuln-info-block {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.info-header {
+    padding: 1rem 1.25rem;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.info-content {
+    padding: 1.5rem;
+    color: var(--text-secondary);
+    line-height: 1.8;
+    white-space: pre-wrap;
+    background: rgba(59, 130, 246, 0.05);
+    border-left: 3px solid var(--info-color);
+}
+
+/* ========================================
    说明块
    ======================================== */
 

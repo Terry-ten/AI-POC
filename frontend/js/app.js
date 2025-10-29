@@ -82,6 +82,7 @@ const elements = {
     loadingState: document.getElementById('loading-state'),
     emptyState: document.getElementById('empty-state'),
     resultContent: document.getElementById('result-content'),
+    vulnDescription: document.getElementById('vuln-description'),
     vulnType: document.getElementById('vuln-type'),
     pocCode: document.getElementById('poc-code'),
     explanationContent: document.getElementById('explanation-content'),
@@ -120,25 +121,6 @@ function showToast(message, type = 'success') {
 }
 
 /**
- * 切换加载状态的步骤动画
- */
-function animateLoadingSteps() {
-    const steps = document.querySelectorAll('.loading-steps .step');
-    let currentStep = 0;
-
-    const interval = setInterval(() => {
-        if (currentStep < steps.length) {
-            steps[currentStep].classList.add('active');
-            currentStep++;
-        } else {
-            clearInterval(interval);
-        }
-    }, 800);
-
-    return interval;
-}
-
-/**
  * 显示加载状态
  */
 function showLoading() {
@@ -150,19 +132,12 @@ function showLoading() {
         <i class="fas fa-spinner fa-spin"></i>
         <span>生成中...</span>
     `;
-
-    // 重置步骤
-    const steps = document.querySelectorAll('.loading-steps .step');
-    steps.forEach(step => step.classList.remove('active'));
-
-    return animateLoadingSteps();
 }
 
 /**
  * 隐藏加载状态
  */
-function hideLoading(interval) {
-    if (interval) clearInterval(interval);
+function hideLoading() {
     elements.loadingState.style.display = 'none';
     elements.generateBtn.disabled = false;
     elements.generateBtn.innerHTML = `
@@ -178,6 +153,9 @@ function hideLoading(interval) {
 function showResult(data) {
     elements.emptyState.style.display = 'none';
     elements.resultContent.style.display = 'block';
+
+    // 设置漏洞描述信息
+    elements.vulnDescription.textContent = data.original_vulnerability_info || '无漏洞描述信息';
 
     // 设置漏洞类型
     elements.vulnType.textContent = data.vulnerability_type || '未知类型';
@@ -298,7 +276,7 @@ async function generatePOC() {
     }
 
     // 显示加载状态
-    const loadingInterval = showLoading();
+    showLoading();
 
     try {
         // 调用API
@@ -317,7 +295,7 @@ async function generatePOC() {
         const data = await response.json();
 
         // 隐藏加载状态
-        hideLoading(loadingInterval);
+        hideLoading();
 
         // 处理结果
         if (data.success) {
@@ -328,7 +306,7 @@ async function generatePOC() {
         }
 
     } catch (error) {
-        hideLoading(loadingInterval);
+        hideLoading();
         console.error('API调用失败:', error);
         showError(`网络错误: ${error.message}`);
     }
@@ -380,42 +358,6 @@ function initializeEventListeners() {
 
     // 新建按钮
     elements.newBtn.addEventListener('click', newPOC);
-
-    // 平滑滚动导航
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-            e.preventDefault();
-            const target = document.querySelector(this.getAttribute('href'));
-            if (target) {
-                target.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
-            }
-        });
-    });
-
-    // 导航栏激活状态
-    const navLinks = document.querySelectorAll('.nav-link');
-    window.addEventListener('scroll', () => {
-        let current = '';
-        const sections = document.querySelectorAll('section[id]');
-
-        sections.forEach(section => {
-            const sectionTop = section.offsetTop;
-            const sectionHeight = section.clientHeight;
-            if (window.pageYOffset >= sectionTop - 100) {
-                current = section.getAttribute('id');
-            }
-        });
-
-        navLinks.forEach(link => {
-            link.classList.remove('active');
-            if (link.getAttribute('href') === `#${current}`) {
-                link.classList.add('active');
-            }
-        });
-    });
 }
 
 // ========================================

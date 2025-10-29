@@ -8,15 +8,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <!-- 背景动画 -->
-    <div class="background-animation">
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-    </div>
-
     <!-- 导航栏 -->
     <nav class="navbar">
         <div class="container">
@@ -25,9 +16,6 @@
                 <span>POC Generator</span>
             </div>
             <div class="nav-menu">
-                <a href="#home" class="nav-link active">首页</a>
-                <a href="#features" class="nav-link">功能</a>
-                <a href="#docs" class="nav-link">文档</a>
                 <a href="http://127.0.0.1:8000/docs" target="_blank" class="nav-link">API文档</a>
             </div>
         </div>
@@ -38,37 +26,8 @@
         <!-- 警告提示 -->
         <div class="warning-banner">
             <i class="fas fa-exclamation-triangle"></i>
-            <span>本工具仅用于授权的安全测试和研究目的 | 未经授权的测试可能违反法律 | 使用者需对其行为负责</span>
+            <span>本工具仅用于授权的安全测试和研究目的</span>
         </div>
-
-        <!-- Hero Section -->
-        <section class="hero-section" id="home">
-            <div class="container">
-                <div class="hero-content">
-                    <h1 class="hero-title">
-                        <span class="gradient-text">AI驱动的</span>
-                        <br>Web漏洞POC生成器
-                    </h1>
-                    <p class="hero-subtitle">
-                        基于大模型技术，自动分析漏洞信息并生成专业的POC验证代码
-                    </p>
-                    <div class="hero-stats">
-                        <div class="stat-item">
-                            <div class="stat-number">30+</div>
-                            <div class="stat-label">支持漏洞类型</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number">AI</div>
-                            <div class="stat-label">智能分析</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number">秒级</div>
-                            <div class="stat-label">生成速度</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </section>
 
         <!-- POC生成器主体 -->
         <section class="generator-section">
@@ -149,21 +108,7 @@
                             <div class="loading-spinner">
                                 <div class="spinner"></div>
                             </div>
-                            <p class="loading-text">AI正在分析漏洞信息并生成POC代码...</p>
-                            <div class="loading-steps">
-                                <div class="step active">
-                                    <i class="fas fa-search"></i>
-                                    <span>分析漏洞类型</span>
-                                </div>
-                                <div class="step">
-                                    <i class="fas fa-brain"></i>
-                                    <span>AI智能生成</span>
-                                </div>
-                                <div class="step">
-                                    <i class="fas fa-check"></i>
-                                    <span>代码优化</span>
-                                </div>
-                            </div>
+                            <p class="loading-text">AI正在生成POC代码...</p>
                         </div>
 
                         <!-- 空状态 -->
@@ -171,25 +116,22 @@
                             <div class="empty-icon">
                                 <i class="fas fa-file-code"></i>
                             </div>
-                            <p class="empty-text">输入漏洞信息后，AI生成的POC代码将显示在这里</p>
-                            <div class="feature-highlights">
-                                <div class="highlight-item">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>自动识别漏洞类型</span>
-                                </div>
-                                <div class="highlight-item">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>生成专业POC代码</span>
-                                </div>
-                                <div class="highlight-item">
-                                    <i class="fas fa-check-circle"></i>
-                                    <span>包含详细使用说明</span>
-                                </div>
-                            </div>
+                            <p class="empty-text">输入漏洞信息后，POC代码将显示在这里</p>
                         </div>
 
                         <!-- 结果内容 -->
                         <div id="result-content" class="result-content" style="display: none;">
+                            <!-- 漏洞信息 -->
+                            <div class="vuln-info-block">
+                                <div class="info-header">
+                                    <i class="fas fa-bug"></i>
+                                    漏洞描述信息
+                                </div>
+                                <div id="vuln-description" class="info-content">
+                                    漏洞描述将显示在这里
+                                </div>
+                            </div>
+
                             <!-- 漏洞类型标签 -->
                             <div class="vuln-type-badge">
                                 <i class="fas fa-tag"></i>
@@ -239,84 +181,9 @@
             </div>
         </section>
 
-        <!-- 功能特性 -->
-        <section class="features-section" id="features">
-            <div class="container">
-                <h2 class="section-title-large">
-                    <span class="gradient-text">强大功能</span>
-                </h2>
-                <div class="features-grid">
-                    <div class="feature-card">
-                        <div class="feature-icon">
-                            <i class="fas fa-robot"></i>
-                        </div>
-                        <h3 class="feature-title">AI智能分析</h3>
-                        <p class="feature-desc">基于大模型技术，自动识别漏洞类型并生成针对性的POC代码</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">
-                            <i class="fas fa-shield-virus"></i>
-                        </div>
-                        <h3 class="feature-title">30+漏洞类型</h3>
-                        <p class="feature-desc">支持SQL注入、XSS、文件上传、SSRF等常见Web漏洞</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">
-                            <i class="fas fa-bolt"></i>
-                        </div>
-                        <h3 class="feature-title">秒级生成</h3>
-                        <p class="feature-desc">高性能异步架构，快速响应，即时生成POC代码</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">
-                            <i class="fas fa-file-alt"></i>
-                        </div>
-                        <h3 class="feature-title">多格式输入</h3>
-                        <p class="feature-desc">支持文字描述、CVE编号、HTTP数据包等多种输入方式</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">
-                            <i class="fas fa-book-open"></i>
-                        </div>
-                        <h3 class="feature-title">详细说明</h3>
-                        <p class="feature-desc">生成的POC包含完整的使用说明和风险提示</p>
-                    </div>
-                    <div class="feature-card">
-                        <div class="feature-icon">
-                            <i class="fas fa-lock"></i>
-                        </div>
-                        <h3 class="feature-title">安全可控</h3>
-                        <p class="feature-desc">生成的POC代码经过安全审核，避免造成实际破坏</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
         <!-- 页脚 -->
         <footer class="footer">
             <div class="container">
-                <div class="footer-content">
-                    <div class="footer-section">
-                        <h4>关于项目</h4>
-                        <p>基于大模型API的Web漏洞POC生成系统，专注于安全研究和教育领域</p>
-                    </div>
-                    <div class="footer-section">
-                        <h4>快速链接</h4>
-                        <ul>
-                            <li><a href="http://127.0.0.1:8000/docs" target="_blank">API文档</a></li>
-                            <li><a href="http://127.0.0.1:8000/redoc" target="_blank">ReDoc</a></li>
-                            <li><a href="#features">功能特性</a></li>
-                        </ul>
-                    </div>
-                    <div class="footer-section">
-                        <h4>安全提示</h4>
-                        <ul>
-                            <li>仅用于授权测试</li>
-                            <li>遵守相关法律法规</li>
-                            <li>用于教育研究目的</li>
-                        </ul>
-                    </div>
-                </div>
                 <div class="footer-bottom">
                     <p>&copy; 2025 Web Vulnerability POC Generator. 仅供教育和安全研究使用。</p>
                 </div>
