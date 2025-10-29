@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir:*)",
+      "Bash(pip install:*)",
+      "Bash(python -m pip install:*)",
+      "Bash(py -m pip install:*)",
+      "Bash(python3 -m pip install:*)",
+      "Bash(where:*)",
+      "Bash(python main.py:*)",
+      "Bash(curl:*)",
+      "Bash(python -m pip:*)",
+      "Bash(findstr:*)",
+      "Bash(python test_api.py:*)",
+      "Bash(cat nul)",
+      "Bash(truncate -s 0 api_server.log)",
+      "Bash(del \"D:\\development\\PycharmPro\\yanwutang_test1\\AI漏洞检测自动化验证方案.md\")",
+      "Bash(rm \"D:\\development\\PycharmPro\\yanwutang_test1\\AI漏洞检测自动化验证方案.md\")",
+      "Bash(mkdir -p frontend/css frontend/js frontend/assets)",
+      "Bash(timeout 3 bash -c 'sleep 5')",
+      "Bash(ping 127.0.0.1 -n 3)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill /F /PID 19048)",
+      "Bash(taskkill //F //PID 19048)",
+      "Bash(ping 127.0.0.1 -n 4)",
+      "Bash(python -m json.tool)",
+      "Bash(git init)",
+      "Bash(git add .)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
