@@ -142,7 +142,31 @@ class LLMService:
 
             # 尝试解析JSON响应
             try:
-                parsed_content = json.loads(content)
+                # 先尝试清理可能存在的markdown代码块标记
+                cleaned_content = content.strip()
+                if cleaned_content.startswith("```json"):
+                    cleaned_content = cleaned_content[7:]
+                if cleaned_content.startswith("```"):
+                    cleaned_content = cleaned_content[3:]
+                if cleaned_content.endswith("```"):
+                    cleaned_content = cleaned_content[:-3]
+                cleaned_content = cleaned_content.strip()
+
+                parsed_content = json.loads(cleaned_content)
+
+                # 清理poc_code字段中可能存在的markdown代码块标记
+                if "poc_code" in parsed_content and parsed_content["poc_code"]:
+                    poc_code = parsed_content["poc_code"].strip()
+                    # 移除开头的代码块标记
+                    if poc_code.startswith("```python"):
+                        poc_code = poc_code[9:]
+                    elif poc_code.startswith("```"):
+                        poc_code = poc_code[3:]
+                    # 移除结尾的代码块标记
+                    if poc_code.endswith("```"):
+                        poc_code = poc_code[:-3]
+                    parsed_content["poc_code"] = poc_code.strip()
+
                 logger.info("✅ JSON解析成功")
                 logger.info("=" * 60)
                 return parsed_content

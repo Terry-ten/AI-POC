@@ -17,7 +17,7 @@ class Settings:
     LLM_API_BASE: str = os.getenv("LLM_API_BASE", "https://api.siliconflow.cn/v1")
     LLM_MODEL: str = os.getenv("LLM_MODEL", "moonshotai/Kimi-K2-Instruct-0905")
     LLM_TEMPERATURE: float = 0.7
-    LLM_MAX_TOKENS: int = 2000
+    LLM_MAX_TOKENS: int = 6000
 
     # 安全警告
     SECURITY_WARNING: str = """
