@@ -325,8 +325,8 @@ body {
     border-radius: var(--radius-xl);
     border: 1px solid var(--border-color);
     box-shadow: var(--shadow-xl);
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-direction: column;
     gap: 0;
     overflow: hidden;
 }
@@ -337,7 +337,7 @@ body {
 }
 
 .input-section {
-    border-right: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .section-title {
@@ -510,6 +510,20 @@ body {
     margin-bottom: 1.5rem;
 }
 
+.loading-text {
+    color: var(--text-primary);
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 2rem;
+}
+
+.loading-hint {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    font-style: italic;
+    margin-top: 2rem;
+}
+
 .spinner {
     width: 50px;
     height: 50px;
@@ -524,6 +538,83 @@ body {
     to {
         transform: rotate(360deg);
     }
+}
+
+/* 实时进度步骤 */
+.progress-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 500px;
+    margin: 0 auto 2rem;
+    text-align: left;
+}
+
+.progress-step {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--border-color);
+    transition: all var(--transition-base);
+    opacity: 0.5;
+}
+
+.progress-step.active {
+    opacity: 1;
+    border-left-color: var(--primary-color);
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.progress-step.completed {
+    opacity: 1;
+    border-left-color: var(--success-color);
+    background: rgba(16, 185, 129, 0.1);
+}
+
+.progress-step .step-icon {
+    font-size: 1.5rem;
+    color: var(--text-muted);
+    width: 30px;
+    text-align: center;
+}
+
+.progress-step.active .step-icon {
+    color: var(--primary-color);
+}
+
+.progress-step.completed .step-icon {
+    color: var(--success-color);
+}
+
+.progress-step .step-content {
+    flex: 1;
+}
+
+.progress-step .step-title {
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+    font-size: 0.9375rem;
+}
+
+.progress-step.active .step-title {
+    color: var(--text-primary);
+}
+
+.progress-step .step-status {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+}
+
+.progress-step.active .step-status {
+    color: var(--primary-light);
+}
+
+.progress-step.completed .step-status {
+    color: var(--success-color);
 }
 
 .loading-text {
@@ -954,9 +1045,7 @@ body {
    ======================================== */
 
 @media (max-width: 1024px) {
-    .generator-card {
-        grid-template-columns: 1fr;
-    }
+    /* 移动端响应式 - 已改为垂直布局，无需特殊处理 */
 
     .input-section {
         border-right: none;
@@ -1021,5 +1110,196 @@ body {
 
     .action-buttons {
         flex-direction: column;
+    }
+}
+
+/* ========================================
+   扫描功能样式
+   ======================================== */
+
+.scanner-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-xl);
+    padding: 2rem;
+    margin-top: 2rem;
+    box-shadow: var(--shadow-xl);
+}
+
+.scanner-input-section {
+    margin-top: 1.5rem;
+}
+
+.form-hint {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+
+.scan-result-section {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.scan-result-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 1.5rem;
+}
+
+.scan-result-header i {
+    color: var(--primary-color);
+}
+
+/* 扫描中状态 */
+.scanning-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 2rem;
+}
+
+.scanning-spinner {
+    margin-bottom: 1rem;
+}
+
+.scanning-text {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+/* 扫描结果内容 */
+.scan-result-content {
+    animation: slideUp 0.3s ease;
+}
+
+/* 漏洞状态卡片 */
+.vuln-status-card {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-lg);
+    margin-bottom: 1.5rem;
+    transition: all var(--transition-base);
+}
+
+.vuln-status-card.vulnerable {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05));
+    border: 2px solid rgba(239, 68, 68, 0.3);
+}
+
+.vuln-status-card.safe {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+    border: 2px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-icon {
+    font-size: 2.5rem;
+    color: var(--primary-color);
+}
+
+.vuln-status-card.vulnerable .status-icon {
+    color: var(--error-color);
+}
+
+.vuln-status-card.safe .status-icon {
+    color: var(--success-color);
+}
+
+.status-info {
+    flex: 1;
+}
+
+.status-label {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+}
+
+.status-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* 扫描信息项 */
+.scan-info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    margin-bottom: 0.75rem;
+}
+
+.info-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    min-width: 120px;
+}
+
+.info-label i {
+    color: var(--primary-light);
+}
+
+.info-value {
+    flex: 1;
+    color: var(--text-primary);
+    word-break: break-all;
+}
+
+/* 详细信息块 */
+.scan-details-block {
+    margin-top: 1rem;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.details-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    background: rgba(99, 102, 241, 0.1);
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.details-header i {
+    color: var(--primary-color);
+}
+
+.details-content {
+    padding: 1.25rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* 动画 */
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }

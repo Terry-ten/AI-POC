@@ -4,6 +4,7 @@
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
 const API_ENDPOINT = `${API_BASE_URL}/api/generate-poc`;
+const SCAN_ENDPOINT = `${API_BASE_URL}/api/scan`;
 
 // 示例数据
 const EXAMPLES = {
@@ -90,6 +91,19 @@ const elements = {
     downloadBtn: document.getElementById('download-btn'),
     newBtn: document.getElementById('new-btn'),
 
+    // 扫描功能元素
+    targetUrl: document.getElementById('target-url'),
+    scanBtn: document.getElementById('scan-btn'),
+    scanResultSection: document.getElementById('scan-result-section'),
+    scanningState: document.getElementById('scanning-state'),
+    scanResultContent: document.getElementById('scan-result-content'),
+    vulnStatusCard: document.getElementById('vuln-status-card'),
+    vulnStatus: document.getElementById('vuln-status'),
+    scannedUrl: document.getElementById('scanned-url'),
+    scanReason: document.getElementById('scan-reason'),
+    scanDetailsBlock: document.getElementById('scan-details-block'),
+    scanDetails: document.getElementById('scan-details'),
+
     // Toast
     toast: document.getElementById('toast'),
     toastMessage: document.getElementById('toast-message')
@@ -132,6 +146,60 @@ function showLoading() {
         <i class="fas fa-spinner fa-spin"></i>
         <span>生成中...</span>
     `;
+
+    // 重置进度步骤状态
+    resetProgressSteps();
+}
+
+/**
+ * 重置进度步骤
+ */
+function resetProgressSteps() {
+    const steps = document.querySelectorAll('.progress-step');
+    steps.forEach(step => {
+        step.classList.remove('active', 'completed');
+        const icon = step.querySelector('.step-icon i');
+        icon.className = 'fas fa-circle';
+        const status = step.querySelector('.step-status');
+        status.textContent = '等待中...';
+    });
+}
+
+/**
+ * 更新进度步骤
+ */
+function updateProgressStep(step, status, message) {
+    const stepElement = document.querySelector(`.progress-step[data-step="${step}"]`);
+    if (!stepElement) return;
+
+    const icon = stepElement.querySelector('.step-icon i');
+    const statusText = stepElement.querySelector('.step-status');
+
+    // 清除之前的所有步骤的active状态
+    document.querySelectorAll('.progress-step').forEach(s => {
+        if (parseInt(s.getAttribute('data-step')) < step) {
+            s.classList.remove('active');
+            s.classList.add('completed');
+            s.querySelector('.step-icon i').className = 'fas fa-check-circle';
+        } else if (parseInt(s.getAttribute('data-step')) === step) {
+            s.classList.add('active');
+            s.classList.remove('completed');
+        } else {
+            s.classList.remove('active', 'completed');
+        }
+    });
+
+    if (status === 'active') {
+        stepElement.classList.add('active');
+        stepElement.classList.remove('completed');
+        icon.className = 'fas fa-circle-notch fa-spin';
+        statusText.textContent = message || '进行中...';
+    } else if (status === 'completed') {
+        stepElement.classList.remove('active');
+        stepElement.classList.add('completed');
+        icon.className = 'fas fa-check-circle';
+        statusText.textContent = '已完成';
+    }
 }
 
 /**
@@ -166,8 +234,7 @@ function showResult(data) {
     // 设置说明
     elements.explanationContent.textContent = data.explanation || '无说明信息';
 
-    // 滚动到结果区域
-    elements.resultContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // 不自动滚动，让用户自然往下看
 }
 
 /**
@@ -253,8 +320,139 @@ function newPOC() {
     elements.targetInfo.value = '';
     elements.resultContent.style.display = 'none';
     elements.emptyState.style.display = 'block';
+
+    // 重置扫描结果显示
+    elements.targetUrl.value = '';
+    elements.scanResultSection.style.display = 'none';
+
     elements.vulnerabilityInfo.focus();
     showToast('已重置，可以输入新的漏洞信息', 'success');
+}
+
+// ========================================
+// 扫描功能
+// ========================================
+
+/**
+ * 显示扫描中状态
+ */
+function showScanning() {
+    elements.scanResultSection.style.display = 'block';
+    elements.scanningState.style.display = 'block';
+    elements.scanResultContent.style.display = 'none';
+    elements.scanBtn.disabled = true;
+    elements.scanBtn.innerHTML = `
+        <i class="fas fa-spinner fa-spin"></i>
+        <span>扫描中...</span>
+    `;
+}
+
+/**
+ * 隐藏扫描中状态
+ */
+function hideScanning() {
+    elements.scanningState.style.display = 'none';
+    elements.scanBtn.disabled = false;
+    elements.scanBtn.innerHTML = `
+        <i class="fas fa-search"></i>
+        <span>开始扫描</span>
+    `;
+}
+
+/**
+ * 显示扫描结果
+ */
+function showScanResult(result) {
+    elements.scanResultContent.style.display = 'block';
+
+    // 设置漏洞状态
+    const vulnerable = result.vulnerable;
+    const statusCard = elements.vulnStatusCard;
+    const statusValue = elements.vulnStatus;
+
+    if (vulnerable) {
+        statusCard.classList.add('vulnerable');
+        statusCard.classList.remove('safe');
+        statusValue.textContent = '存在漏洞';
+        statusValue.style.color = '#ef4444';
+    } else {
+        statusCard.classList.add('safe');
+        statusCard.classList.remove('vulnerable');
+        statusValue.textContent = '未发现漏洞';
+        statusValue.style.color = '#10b981';
+    }
+
+    // 设置目标URL
+    elements.scannedUrl.textContent = result.target_url || '-';
+
+    // 设置判断依据
+    elements.scanReason.textContent = result.reason || '未提供判断原因';
+
+    // 设置详细信息
+    if (result.details && result.details.trim()) {
+        elements.scanDetailsBlock.style.display = 'block';
+        elements.scanDetails.textContent = result.details;
+    } else {
+        elements.scanDetailsBlock.style.display = 'none';
+    }
+
+    // 不自动滚动，让用户自然查看结果
+}
+
+/**
+ * 执行扫描
+ */
+async function executeScan() {
+    const targetUrl = elements.targetUrl.value.trim();
+
+    // 验证输入
+    if (!targetUrl) {
+        showToast('请输入目标URL', 'warning');
+        elements.targetUrl.focus();
+        return;
+    }
+
+    // 显示扫描中状态
+    showScanning();
+
+    try {
+        // 调用扫描API（不再需要scan_id）
+        const response = await fetch(SCAN_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                target_url: targetUrl
+            })
+        });
+
+        // 解析响应
+        const data = await response.json();
+
+        // 隐藏扫描中状态
+        hideScanning();
+
+        // 处理结果
+        if (data.success) {
+            showScanResult(data);
+            showToast('扫描完成', 'success');
+        } else {
+            showToast(data.error || '扫描失败', 'error');
+            // 仍然显示结果（包含错误信息）
+            showScanResult({
+                vulnerable: false,
+                target_url: targetUrl,
+                reason: data.reason || '扫描失败',
+                details: data.error || ''
+            });
+        }
+
+    } catch (error) {
+        hideScanning();
+        console.error('扫描API调用失败:', error);
+        showToast(`网络错误: ${error.message}`, 'error');
+    }
 }
 
 // ========================================
@@ -262,7 +460,7 @@ function newPOC() {
 // ========================================
 
 /**
- * 调用后端API生成POC
+ * 调用后端API生成POC（使用SSE流式响应）
  */
 async function generatePOC() {
     const vulnerabilityInfo = elements.vulnerabilityInfo.value.trim();
@@ -279,7 +477,7 @@ async function generatePOC() {
     showLoading();
 
     try {
-        // 调用API
+        // 先发送POST请求启动生成流程
         const response = await fetch(API_ENDPOINT, {
             method: 'POST',
             headers: {
@@ -291,18 +489,69 @@ async function generatePOC() {
             })
         });
 
-        // 解析响应
-        const data = await response.json();
+        // 检查响应是否为流式响应
+        if (!response.ok) {
+            throw new Error(`HTTP错误: ${response.status}`);
+        }
 
-        // 隐藏加载状态
-        hideLoading();
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-        // 处理结果
-        if (data.success) {
-            showResult(data);
-            showToast('POC代码生成成功', 'success');
-        } else {
-            showError(data.error || 'POC生成失败');
+        // 读取流数据
+        while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+
+            // 保留最后一个不完整的行
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    const data = line.slice(6);
+
+                    if (data === '[DONE]') {
+                        console.log('✅ 流式响应结束');
+                        continue;
+                    }
+
+                    try {
+                        const json = JSON.parse(data);
+
+                        if (json.type === 'status') {
+                            // 更新进度显示
+                            console.log(`进度更新: 第${json.step}步 - ${json.message}`);
+                            if (json.step > 0) {
+                                updateProgressStep(json.step, 'active', json.message);
+                            }
+                        } else if (json.type === 'result') {
+                            // 接收到最终结果
+                            console.log('✅ 收到最终结果');
+                            hideLoading();
+
+                            if (json.data.success) {
+                                // 标记所有步骤为完成
+                                updateProgressStep(3, 'completed', '已完成');
+                                showResult(json.data);
+                                showToast('POC代码生成成功', 'success');
+                            } else {
+                                showError(json.data.error || 'POC生成失败');
+                            }
+                        } else if (json.type === 'error') {
+                            // 接收到错误
+                            console.error('❌ 生成失败:', json.data.error);
+                            hideLoading();
+                            showError(json.data.error || 'POC生成失败');
+                        }
+                    } catch (e) {
+                        console.error('JSON解析错误:', e, data);
+                    }
+                }
+            }
         }
 
     } catch (error) {
@@ -358,6 +607,16 @@ function initializeEventListeners() {
 
     // 新建按钮
     elements.newBtn.addEventListener('click', newPOC);
+
+    // 扫描按钮点击事件
+    elements.scanBtn.addEventListener('click', executeScan);
+
+    // URL输入框回车键触发扫描
+    elements.targetUrl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !elements.scanBtn.disabled) {
+            executeScan();
+        }
+    });
 }
 
 // ========================================

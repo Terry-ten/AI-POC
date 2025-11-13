@@ -108,7 +108,40 @@
                             <div class="loading-spinner">
                                 <div class="spinner"></div>
                             </div>
-                            <p class="loading-text">AI正在生成POC代码...</p>
+                            <p class="loading-text">AI正在生成并验证POC代码...</p>
+
+                            <!-- 实时进度显示 -->
+                            <div class="progress-steps">
+                                <div class="progress-step" data-step="1">
+                                    <div class="step-icon">
+                                        <i class="fas fa-circle-notch fa-spin"></i>
+                                    </div>
+                                    <div class="step-content">
+                                        <div class="step-title">第1步：生成初始POC</div>
+                                        <div class="step-status">等待中...</div>
+                                    </div>
+                                </div>
+                                <div class="progress-step" data-step="2">
+                                    <div class="step-icon">
+                                        <i class="fas fa-circle"></i>
+                                    </div>
+                                    <div class="step-content">
+                                        <div class="step-title">第2步：代码评审</div>
+                                        <div class="step-status">等待中...</div>
+                                    </div>
+                                </div>
+                                <div class="progress-step" data-step="3">
+                                    <div class="step-icon">
+                                        <i class="fas fa-circle"></i>
+                                    </div>
+                                    <div class="step-content">
+                                        <div class="step-title">第3步：重新生成</div>
+                                        <div class="step-status">等待中...</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p class="loading-hint">整个过程可能需要30-90秒，请耐心等待</p>
                         </div>
 
                         <!-- 空状态 -->
@@ -174,6 +207,89 @@
                                     <i class="fas fa-plus"></i>
                                     新建POC
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 扫描功能区域 -->
+                <div class="container">
+                    <div class="scanner-card">
+                        <h2 class="section-title">
+                            <i class="fas fa-search"></i>
+                            漏洞扫描验证
+                        </h2>
+
+                        <div class="scanner-input-section">
+                            <div class="form-group">
+                                <label for="target-url" class="form-label">
+                                    <i class="fas fa-globe"></i>
+                                    目标URL
+                                </label>
+                                <input
+                                    type="text"
+                                    id="target-url"
+                                    class="form-input"
+                                    placeholder="例如: http://192.168.1.100 或 https://example.com:8080">
+                                <small class="form-hint">URL将自动标准化为 http(s)://x.x.x.x:port/ 格式</small>
+                            </div>
+
+                            <button id="scan-btn" class="btn-primary">
+                                <i class="fas fa-search"></i>
+                                <span>开始扫描</span>
+                            </button>
+                        </div>
+
+                        <!-- 扫描结果区域 -->
+                        <div id="scan-result-section" class="scan-result-section" style="display: none;">
+                            <div class="scan-result-header">
+                                <i class="fas fa-clipboard-check"></i>
+                                扫描结果
+                            </div>
+
+                            <!-- 扫描中状态 -->
+                            <div id="scanning-state" class="scanning-state" style="display: none;">
+                                <div class="scanning-spinner">
+                                    <div class="spinner"></div>
+                                </div>
+                                <p class="scanning-text">正在扫描目标URL...</p>
+                            </div>
+
+                            <!-- 扫描结果内容 -->
+                            <div id="scan-result-content" class="scan-result-content" style="display: none;">
+                                <!-- 漏洞状态卡片 -->
+                                <div id="vuln-status-card" class="vuln-status-card">
+                                    <div class="status-icon">
+                                        <i class="fas fa-shield-alt"></i>
+                                    </div>
+                                    <div class="status-info">
+                                        <div class="status-label">漏洞检测结果</div>
+                                        <div id="vuln-status" class="status-value">未检测</div>
+                                    </div>
+                                </div>
+
+                                <!-- 目标URL -->
+                                <div class="scan-info-item">
+                                    <span class="info-label"><i class="fas fa-link"></i> 目标URL：</span>
+                                    <span id="scanned-url" class="info-value">-</span>
+                                </div>
+
+                                <!-- 判断依据 -->
+                                <div class="scan-info-item">
+                                    <span class="info-label"><i class="fas fa-info-circle"></i> 判断依据：</span>
+                                    <span id="scan-reason" class="info-value">-</span>
+                                </div>
+
+                                <!-- 详细信息 -->
+                                <div id="scan-details-block" class="scan-details-block" style="display: none;">
+                                    <div class="details-header">
+                                        <i class="fas fa-list-ul"></i>
+                                        详细信息
+                                    </div>
+                                    <div id="scan-details" class="details-content">
+                                        详细信息将显示在这里
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

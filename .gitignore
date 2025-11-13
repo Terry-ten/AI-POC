@@ -53,3 +53,10 @@ htmlcov/
 # 临时文件
 *.tmp
 temp/
+nul
+
+# Claude本地设置
+.claude/settings.local.json
+
+# 扫描结果
+saved_scans/
