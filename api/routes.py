@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from models.schemas import VulnerabilityRequest, PocResponse, ScanRequest, ScanResponse
 from services.llm_service import llm_service
 from services.scanner_service import scanner_service
+from services.poc_library_service import poc_library_service
 from config import settings
 import logging
 import json
@@ -91,7 +92,23 @@ async def generate_poc(request: VulnerabilityRequest):
                 explanation=final_result.get("explanation") or ""
             )
             logger.info("✅ 最终POC生成完成，已保存到 scan.py")
-            yield f"data: {json.dumps({'type': 'status', 'step': 3, 'message': '✅ 第3步完成：最终POC已生成并保存'}, ensure_ascii=False)}\n\n"
+
+            # 保存到POC库
+            try:
+                poc_id = poc_library_service.save_poc(
+                    vuln_type=final_result.get("vulnerability_type") or "unknown",
+                    vuln_info=final_result.get("original_vulnerability_info") or request.vulnerability_info,
+                    poc_code=final_result.get("poc_code") or "",
+                    explanation=final_result.get("explanation") or "",
+                    poc_type="python",
+                    tags=["auto-generated", "llm"],
+                    metadata={"target_info": request.target_info}
+                )
+                logger.info(f"✅ POC已保存到库，ID: {poc_id}")
+            except Exception as e:
+                logger.warning(f"⚠ 保存到POC库失败：{str(e)}")
+
+            yield f"data: {json.dumps({'type': 'status', 'step': 3, 'message': '✅ 第3步完成：最终POC已生成并保存到库'}, ensure_ascii=False)}\n\n"
             await asyncio.sleep(0.1)
 
             logger.info("="*80)
@@ -195,4 +212,101 @@ async def health_check():
         "service": "Vulnerability to POC Generator",
         "version": "1.0.0",
     }
+
+
+# ==================== POC库管理API ====================
+
+@router.get("/pocs/search", summary="搜索POC库")
+async def search_pocs(
+    vuln_type: str = None,
+    poc_type: str = None,
+    keyword: str = None,
+    limit: int = 50,
+    offset: int = 0
+):
+    """
+    搜索POC库
+
+    - **vuln_type**: 漏洞类型过滤（如: sqli, xss, rce）
+    - **poc_type**: POC类型过滤（python/nuclei）
+    - **keyword**: 关键词搜索
+    - **limit**: 返回数量限制
+    - **offset**: 偏移量
+    """
+    try:
+        pocs = poc_library_service.search_pocs(
+            vuln_type=vuln_type,
+            poc_type=poc_type,
+            keyword=keyword,
+            limit=limit,
+            offset=offset
+        )
+        return {"success": True, "total": len(pocs), "pocs": pocs}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/pocs/{poc_id}", summary="获取POC详情")
+async def get_poc(poc_id: int):
+    """获取指定POC的详细信息"""
+    poc = poc_library_service.get_poc_by_id(poc_id)
+    if not poc:
+        raise HTTPException(status_code=404, detail="POC不存在")
+    return {"success": True, "poc": poc}
+
+
+@router.post("/pocs/{poc_id}/execute", summary="执行指定POC")
+async def execute_poc_by_id(poc_id: int, request: ScanRequest):
+    """
+    根据POC ID执行扫描
+
+    - **poc_id**: POC记录ID
+    - **target_url**: 目标URL
+    """
+    try:
+        result = poc_library_service.execute_poc(poc_id, request.target_url)
+
+        if not result.get("success"):
+            return {
+                "success": False,
+                "error": result.get("error", "执行失败")
+            }
+
+        return {
+            "success": True,
+            "poc_id": poc_id,
+            "target_url": result.get("target_url"),
+            "result": result.get("result")
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/pocs/{poc_id}", summary="删除POC")
+async def delete_poc(poc_id: int):
+    """删除指定的POC"""
+    success = poc_library_service.delete_poc(poc_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="POC不存在或删除失败")
+    return {"success": True, "message": "POC删除成功"}
+
+
+@router.get("/pocs/statistics", summary="获取POC库统计信息")
+async def get_statistics():
+    """获取POC库统计信息"""
+    try:
+        stats = poc_library_service.get_statistics()
+        return {"success": True, "statistics": stats}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/pocs/vuln-types", summary="获取所有漏洞类型")
+async def get_vuln_types():
+    """获取所有漏洞类型及其数量"""
+    try:
+        types = poc_library_service.get_all_vuln_types()
+        return {"success": True, "vuln_types": types}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 

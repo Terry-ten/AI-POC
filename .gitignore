@@ -60,3 +60,9 @@ nul
 
 # 扫描结果
 saved_scans/
+
+# POC库文件（保留目录结构）
+pocs/*.db
+pocs/python/*.py
+pocs/nuclei/*.yaml
+pocs/metadata/*.json
