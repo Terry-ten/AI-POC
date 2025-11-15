@@ -15,6 +15,16 @@
                 <i class="fas fa-shield-alt"></i>
                 <span>POC Generator</span>
             </div>
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-tab="generator">
+                    <i class="fas fa-magic"></i>
+                    生成POC
+                </button>
+                <button class="nav-tab" data-tab="library">
+                    <i class="fas fa-database"></i>
+                    POC库
+                </button>
+            </div>
             <div class="nav-menu">
                 <a href="http://127.0.0.1:8000/docs" target="_blank" class="nav-link">API文档</a>
             </div>
@@ -108,7 +118,7 @@
                             <div class="loading-spinner">
                                 <div class="spinner"></div>
                             </div>
-                            <p class="loading-text">AI正在生成并验证POC代码...</p>
+                            <p class="loading-text">AI正在生成POC代码...</p>
 
                             <!-- 实时进度显示 -->
                             <div class="progress-steps">
@@ -117,31 +127,13 @@
                                         <i class="fas fa-circle-notch fa-spin"></i>
                                     </div>
                                     <div class="step-content">
-                                        <div class="step-title">第1步：生成初始POC</div>
-                                        <div class="step-status">等待中...</div>
-                                    </div>
-                                </div>
-                                <div class="progress-step" data-step="2">
-                                    <div class="step-icon">
-                                        <i class="fas fa-circle"></i>
-                                    </div>
-                                    <div class="step-content">
-                                        <div class="step-title">第2步：代码评审</div>
-                                        <div class="step-status">等待中...</div>
-                                    </div>
-                                </div>
-                                <div class="progress-step" data-step="3">
-                                    <div class="step-icon">
-                                        <i class="fas fa-circle"></i>
-                                    </div>
-                                    <div class="step-content">
-                                        <div class="step-title">第3步：重新生成</div>
+                                        <div class="step-title">生成POC代码</div>
                                         <div class="step-status">等待中...</div>
                                     </div>
                                 </div>
                             </div>
 
-                            <p class="loading-hint">整个过程可能需要30-90秒，请耐心等待</p>
+                            <p class="loading-hint">整个过程可能需要20-40秒，请耐心等待</p>
                         </div>
 
                         <!-- 空状态 -->
@@ -211,84 +203,154 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </section>
 
-                <!-- 扫描功能区域 -->
-                <div class="container">
-                    <div class="scanner-card">
-                        <h2 class="section-title">
-                            <i class="fas fa-search"></i>
-                            漏洞扫描验证
-                        </h2>
+        <!-- POC库管理区域 -->
+        <section class="library-section" style="display: none;">
+            <div class="container">
+                <!-- 统计卡片 -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-label">POC总数</div>
+                            <div id="stat-total" class="stat-value">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-python"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-label">Python POC</div>
+                            <div id="stat-python" class="stat-value">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-bolt"></i>
+                        </div>
+                        <div class="stat-info">
+                            <div class="stat-label">Nuclei POC</div>
+                            <div id="stat-nuclei" class="stat-value">0</div>
+                        </div>
+                    </div>
+                </div>
 
-                        <div class="scanner-input-section">
-                            <div class="form-group">
-                                <label for="target-url" class="form-label">
-                                    <i class="fas fa-globe"></i>
-                                    目标URL
-                                </label>
-                                <input
-                                    type="text"
-                                    id="target-url"
-                                    class="form-input"
-                                    placeholder="例如: http://192.168.1.100 或 https://example.com:8080">
-                                <small class="form-hint">URL将自动标准化为 http(s)://x.x.x.x:port/ 格式</small>
-                            </div>
+                <!-- 搜索和筛选 -->
+                <div class="library-controls">
+                    <!-- 可验证性选项卡 -->
+                    <div class="verifiable-tabs">
+                        <button class="tab-btn active" data-verifiable="all">
+                            <i class="fas fa-list"></i>
+                            全部POC
+                        </button>
+                        <button class="tab-btn" data-verifiable="true">
+                            <i class="fas fa-check-circle"></i>
+                            可验证
+                        </button>
+                        <button class="tab-btn" data-verifiable="false">
+                            <i class="fas fa-hand-paper"></i>
+                            需人工验证
+                        </button>
+                    </div>
 
-                            <button id="scan-btn" class="btn-primary">
-                                <i class="fas fa-search"></i>
-                                <span>开始扫描</span>
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="search-keyword" placeholder="搜索POC..." class="search-input">
+                    </div>
+                    <div class="filter-group">
+                        <select id="filter-vuln-type" class="filter-select">
+                            <option value="">所有漏洞类型</option>
+                        </select>
+                        <select id="filter-poc-type" class="filter-select">
+                            <option value="">所有POC类型</option>
+                            <option value="python">Python</option>
+                            <option value="nuclei">Nuclei</option>
+                            <option value="manual">人工操作</option>
+                        </select>
+                        <button id="refresh-btn" class="btn-icon" title="刷新">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- POC列表 -->
+                <div class="poc-list-container">
+                    <div id="poc-list-loading" class="list-loading" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>加载POC列表...</p>
+                    </div>
+
+                    <div id="poc-list-empty" class="list-empty" style="display: none;">
+                        <i class="fas fa-folder-open"></i>
+                        <p>暂无POC记录</p>
+                    </div>
+
+                    <div id="poc-list" class="poc-list">
+                        <!-- POC项目将动态添加 -->
+                    </div>
+                </div>
+
+                <!-- POC详情模态框 -->
+                <div id="poc-detail-modal" class="modal" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>
+                                <i class="fas fa-file-code"></i>
+                                POC详情
+                            </h3>
+                            <button class="modal-close">
+                                <i class="fas fa-times"></i>
                             </button>
                         </div>
-
-                        <!-- 扫描结果区域 -->
-                        <div id="scan-result-section" class="scan-result-section" style="display: none;">
-                            <div class="scan-result-header">
-                                <i class="fas fa-clipboard-check"></i>
-                                扫描结果
+                        <div class="modal-body">
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <span class="detail-label">POC ID:</span>
+                                    <span id="detail-id" class="detail-value">-</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">漏洞类型:</span>
+                                    <span id="detail-vuln-type" class="detail-value">-</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">POC类型:</span>
+                                    <span id="detail-poc-type" class="detail-value">-</span>
+                                </div>
+                                <div class="detail-item">
+                                    <span class="detail-label">创建时间:</span>
+                                    <span id="detail-create-time" class="detail-value">-</span>
+                                </div>
                             </div>
 
-                            <!-- 扫描中状态 -->
-                            <div id="scanning-state" class="scanning-state" style="display: none;">
-                                <div class="scanning-spinner">
-                                    <div class="spinner"></div>
+                            <div class="detail-description">
+                                <div class="detail-section-title">
+                                    <i class="fas fa-info-circle"></i>
+                                    漏洞描述
                                 </div>
-                                <p class="scanning-text">正在扫描目标URL...</p>
+                                <div id="detail-description" class="detail-section-content">
+                                    -
+                                </div>
                             </div>
 
-                            <!-- 扫描结果内容 -->
-                            <div id="scan-result-content" class="scan-result-content" style="display: none;">
-                                <!-- 漏洞状态卡片 -->
-                                <div id="vuln-status-card" class="vuln-status-card">
-                                    <div class="status-icon">
-                                        <i class="fas fa-shield-alt"></i>
-                                    </div>
-                                    <div class="status-info">
-                                        <div class="status-label">漏洞检测结果</div>
-                                        <div id="vuln-status" class="status-value">未检测</div>
-                                    </div>
+                            <div class="detail-execute-section">
+                                <div class="detail-section-title">
+                                    <i class="fas fa-play"></i>
+                                    执行POC
                                 </div>
-
-                                <!-- 目标URL -->
-                                <div class="scan-info-item">
-                                    <span class="info-label"><i class="fas fa-link"></i> 目标URL：</span>
-                                    <span id="scanned-url" class="info-value">-</span>
+                                <div class="execute-form">
+                                    <input type="text" id="execute-target-url" placeholder="输入目标URL..." class="execute-input">
+                                    <button id="execute-poc-btn" class="btn-primary">
+                                        <i class="fas fa-rocket"></i>
+                                        执行
+                                    </button>
                                 </div>
-
-                                <!-- 判断依据 -->
-                                <div class="scan-info-item">
-                                    <span class="info-label"><i class="fas fa-info-circle"></i> 判断依据：</span>
-                                    <span id="scan-reason" class="info-value">-</span>
-                                </div>
-
-                                <!-- 详细信息 -->
-                                <div id="scan-details-block" class="scan-details-block" style="display: none;">
-                                    <div class="details-header">
-                                        <i class="fas fa-list-ul"></i>
-                                        详细信息
-                                    </div>
-                                    <div id="scan-details" class="details-content">
-                                        详细信息将显示在这里
-                                    </div>
+                                <div id="execute-result" class="execute-result" style="display: none;">
+                                    <!-- 执行结果将显示在这里 -->
                                 </div>
                             </div>
                         </div>

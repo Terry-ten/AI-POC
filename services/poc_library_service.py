@@ -49,7 +49,7 @@ class PocLibraryService:
         (self.pocs_dir / "nuclei").mkdir(exist_ok=True)
         (self.pocs_dir / "metadata").mkdir(exist_ok=True)
 
-        print(f"✓ POC库目录初始化完成: {self.pocs_dir}")
+        print(f"[OK] POC库目录初始化完成: {self.pocs_dir}")
 
     def init_database(self):
         """初始化SQLite数据库"""
@@ -67,42 +67,59 @@ class PocLibraryService:
                 poc_file_path TEXT NOT NULL,
                 create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 last_used TIMESTAMP,
-                success_count INTEGER DEFAULT 0,
-                fail_count INTEGER DEFAULT 0,
                 tags TEXT,
-                metadata TEXT
+                metadata TEXT,
+                verifiable BOOLEAN DEFAULT 1,
+                manual_steps TEXT
             )
         """)
+
+        # 检查并添加新字段（用于数据库迁移）
+        cursor.execute("PRAGMA table_info(poc_records)")
+        columns = [column[1] for column in cursor.fetchall()]
+
+        if 'verifiable' not in columns:
+            cursor.execute("ALTER TABLE poc_records ADD COLUMN verifiable BOOLEAN DEFAULT 1")
+            print("[Migration] 添加 verifiable 字段")
+
+        if 'manual_steps' not in columns:
+            cursor.execute("ALTER TABLE poc_records ADD COLUMN manual_steps TEXT")
+            print("[Migration] 添加 manual_steps 字段")
 
         # 创建索引
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_vuln_type ON poc_records(vuln_type)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_poc_type ON poc_records(poc_type)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_create_time ON poc_records(create_time DESC)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_verifiable ON poc_records(verifiable)")
 
         conn.commit()
         conn.close()
 
-        print(f"✓ POC库数据库初始化完成: {self.db_path}")
+        print(f"[OK] POC库数据库初始化完成: {self.db_path}")
 
     def save_poc(self,
                  vuln_type: str,
                  vuln_info: str,
-                 poc_code: str,
+                 poc_code: str = None,
                  explanation: str = "",
                  poc_type: str = "python",
                  tags: List[str] = None,
-                 metadata: dict = None) -> int:
+                 metadata: dict = None,
+                 verifiable: bool = True,
+                 manual_steps: dict = None) -> int:
         """
         保存POC到库中
 
         Args:
             vuln_type: 漏洞类型（如sqli, xss, rce等）
             vuln_info: 漏洞描述信息
-            poc_code: POC代码内容
+            poc_code: POC代码内容（可验证时必需）
             explanation: POC说明
-            poc_type: POC类型（python/nuclei）
+            poc_type: POC类型（python/nuclei/manual）
             tags: 标签列表
             metadata: 元数据
+            verifiable: 是否可自动化验证
+            manual_steps: 人工操作指南（不可验证时必需）
 
         Returns:
             int: POC记录ID
@@ -111,36 +128,61 @@ class PocLibraryService:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         hash_suffix = hashlib.md5(vuln_info.encode()).hexdigest()[:6]
 
-        if poc_type == "python":
-            file_name = f"{vuln_type}_{timestamp}_{hash_suffix}.py"
-            poc_file_path = self.pocs_dir / "python" / file_name
+        if verifiable:
+            # 可自动化验证：保存POC代码
+            if not poc_code:
+                raise ValueError("可验证的POC必须提供poc_code")
 
-            # 保存Python POC文件
+            if poc_type == "python":
+                file_name = f"{vuln_type}_{timestamp}_{hash_suffix}.py"
+                poc_file_path = self.pocs_dir / "python" / file_name
+
+                # 保存Python POC文件
+                with open(poc_file_path, 'w', encoding='utf-8') as f:
+                    f.write(poc_code)
+
+                # 保存元数据文件
+                metadata_file = self.pocs_dir / "metadata" / f"{vuln_type}_{timestamp}_{hash_suffix}.json"
+                with open(metadata_file, 'w', encoding='utf-8') as f:
+                    json.dump({
+                        "vuln_type": vuln_type,
+                        "vuln_info": vuln_info,
+                        "explanation": explanation,
+                        "create_time": timestamp,
+                        "tags": tags or [],
+                        "metadata": metadata or {}
+                    }, f, ensure_ascii=False, indent=2)
+
+            elif poc_type == "nuclei":
+                file_name = f"{vuln_type}_{timestamp}_{hash_suffix}.yaml"
+                poc_file_path = self.pocs_dir / "nuclei" / file_name
+
+                # 保存Nuclei模板
+                with open(poc_file_path, 'w', encoding='utf-8') as f:
+                    f.write(poc_code)
+
+            else:
+                raise ValueError(f"不支持的POC类型: {poc_type}")
+        else:
+            # 不可自动化验证：保存人工操作指南
+            if not manual_steps:
+                raise ValueError("不可验证的POC必须提供manual_steps")
+
+            poc_type = "manual"  # 设置为manual类型
+            file_name = f"{vuln_type}_{timestamp}_{hash_suffix}.json"
+            poc_file_path = self.pocs_dir / "metadata" / file_name
+
+            # 保存人工操作指南
             with open(poc_file_path, 'w', encoding='utf-8') as f:
-                f.write(poc_code)
-
-            # 保存元数据文件
-            metadata_file = self.pocs_dir / "metadata" / f"{vuln_type}_{timestamp}_{hash_suffix}.json"
-            with open(metadata_file, 'w', encoding='utf-8') as f:
                 json.dump({
                     "vuln_type": vuln_type,
                     "vuln_info": vuln_info,
                     "explanation": explanation,
                     "create_time": timestamp,
                     "tags": tags or [],
-                    "metadata": metadata or {}
+                    "metadata": metadata or {},
+                    "manual_steps": manual_steps
                 }, f, ensure_ascii=False, indent=2)
-
-        elif poc_type == "nuclei":
-            file_name = f"{vuln_type}_{timestamp}_{hash_suffix}.yaml"
-            poc_file_path = self.pocs_dir / "nuclei" / file_name
-
-            # 保存Nuclei模板
-            with open(poc_file_path, 'w', encoding='utf-8') as f:
-                f.write(poc_code)
-
-        else:
-            raise ValueError(f"不支持的POC类型: {poc_type}")
 
         # 插入数据库记录
         conn = sqlite3.connect(self.db_path)
@@ -150,8 +192,8 @@ class PocLibraryService:
 
         cursor.execute("""
             INSERT INTO poc_records
-            (vuln_type, vuln_name, vuln_description, poc_type, poc_file_path, tags, metadata)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            (vuln_type, vuln_name, vuln_description, poc_type, poc_file_path, tags, metadata, verifiable, manual_steps)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             vuln_type,
             vuln_name,
@@ -159,14 +201,16 @@ class PocLibraryService:
             poc_type,
             str(poc_file_path),
             ",".join(tags) if tags else "",
-            json.dumps(metadata or {}, ensure_ascii=False)
+            json.dumps(metadata or {}, ensure_ascii=False),
+            1 if verifiable else 0,
+            json.dumps(manual_steps, ensure_ascii=False) if manual_steps else None
         ))
 
         poc_id = cursor.lastrowid
         conn.commit()
         conn.close()
 
-        print(f"✓ POC已保存到库: ID={poc_id}, 文件={poc_file_path.name}")
+        print(f"[OK] POC已保存到库: ID={poc_id}, 文件={poc_file_path.name}")
 
         return poc_id
 
@@ -195,6 +239,7 @@ class PocLibraryService:
                     poc_type: str = None,
                     keyword: str = None,
                     tags: List[str] = None,
+                    verifiable: bool = None,
                     limit: int = 50,
                     offset: int = 0) -> List[Dict]:
         """
@@ -202,9 +247,10 @@ class PocLibraryService:
 
         Args:
             vuln_type: 漏洞类型过滤
-            poc_type: POC类型过滤（python/nuclei）
+            poc_type: POC类型过滤（python/nuclei/manual）
             keyword: 关键词搜索（在名称和描述中搜索）
             tags: 标签过滤
+            verifiable: 是否可验证过滤（True/False/None）
             limit: 返回数量限制
             offset: 偏移量
 
@@ -234,6 +280,10 @@ class PocLibraryService:
             for tag in tags:
                 query += " AND tags LIKE ?"
                 params.append(f"%{tag}%")
+
+        if verifiable is not None:
+            query += " AND verifiable = ?"
+            params.append(1 if verifiable else 0)
 
         query += " ORDER BY create_time DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
@@ -278,24 +328,13 @@ class PocLibraryService:
         cursor.execute("SELECT id, vuln_name, last_used FROM poc_records WHERE last_used IS NOT NULL ORDER BY last_used DESC LIMIT 5")
         recent_used = [{"id": row[0], "name": row[1], "last_used": row[2]} for row in cursor.fetchall()]
 
-        # 成功率最高的POC
-        cursor.execute("""
-            SELECT id, vuln_name, success_count, fail_count,
-                   CAST(success_count AS REAL) / NULLIF(success_count + fail_count, 0) as success_rate
-            FROM poc_records
-            WHERE success_count + fail_count > 0
-            ORDER BY success_rate DESC, success_count DESC
-            LIMIT 5
-        """)
-        top_pocs = [{"id": row[0], "name": row[1], "success_count": row[2], "fail_count": row[3], "success_rate": row[4]} for row in cursor.fetchall()]
-
         conn.close()
 
         return {
             "total_pocs": total_pocs,
-            "type_stats": type_stats,
-            "recent_used": recent_used,
-            "top_pocs": top_pocs
+            "python_pocs": type_stats.get("python", 0),
+            "nuclei_pocs": type_stats.get("nuclei", 0),
+            "recent_used": recent_used
         }
 
     def execute_poc(self, poc_id: int, target_url: str) -> Dict:
@@ -327,13 +366,6 @@ class PocLibraryService:
                     result = nuclei_engine.execute(poc_record['poc_file_path'], target_url)
             else:
                 result = {"success": False, "error": f"不支持的POC类型: {poc_record['poc_type']}"}
-
-            # 更新成功/失败统计
-            if result.get('success'):
-                if result.get('result', {}).get('vulnerable'):
-                    self._update_success_count(poc_id)
-                else:
-                    self._update_fail_count(poc_id)
 
             return result
 
@@ -447,28 +479,6 @@ class PocLibraryService:
         conn.commit()
         conn.close()
 
-    def _update_success_count(self, poc_id: int):
-        """更新POC成功次数"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE poc_records SET success_count = success_count + 1 WHERE id = ?",
-            (poc_id,)
-        )
-        conn.commit()
-        conn.close()
-
-    def _update_fail_count(self, poc_id: int):
-        """更新POC失败次数"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE poc_records SET fail_count = fail_count + 1 WHERE id = ?",
-            (poc_id,)
-        )
-        conn.commit()
-        conn.close()
-
     def delete_poc(self, poc_id: int) -> bool:
         """
         删除POC
@@ -501,11 +511,11 @@ class PocLibraryService:
             conn.commit()
             conn.close()
 
-            print(f"✓ POC已删除: ID={poc_id}")
+            print(f"[OK] POC已删除: ID={poc_id}")
             return True
 
         except Exception as e:
-            print(f"✗ 删除POC失败: {str(e)}")
+            print(f"[X] 删除POC失败: {str(e)}")
             return False
 
 

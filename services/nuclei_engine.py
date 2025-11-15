@@ -43,17 +43,17 @@ class NucleiEngine:
             )
             if result.returncode == 0:
                 version_info = result.stdout.strip()
-                print(f"✓ Nuclei已安装: {version_info}")
+                print(f"[OK] Nuclei已安装: {version_info}")
                 return True
             else:
-                print("✗ Nuclei未正确安装")
+                print("[X] Nuclei未正确安装")
                 return False
         except FileNotFoundError:
-            print(f"✗ Nuclei未找到，请确保已安装并添加到PATH中")
+            print(f"[X] Nuclei未找到，请确保已安装并添加到PATH中")
             print("  安装方法: https://github.com/projectdiscovery/nuclei#install-nuclei")
             return False
         except Exception as e:
-            print(f"✗ 检查Nuclei时出错: {str(e)}")
+            print(f"[X] 检查Nuclei时出错: {str(e)}")
             return False
 
     def execute(self, template_path: str, target_url: str, timeout: int = 30) -> Dict:
@@ -232,7 +232,7 @@ class NucleiEngine:
             }
 
         except Exception as e:
-            print(f"✗ 解析模板信息失败: {str(e)}")
+            print(f"[X] 解析模板信息失败: {str(e)}")
             return None
 
     def import_template(self, source_template_path: str, dest_dir: Path) -> Dict:

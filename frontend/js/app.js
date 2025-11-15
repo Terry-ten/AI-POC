@@ -4,7 +4,7 @@
 
 const API_BASE_URL = 'http://127.0.0.1:8000';
 const API_ENDPOINT = `${API_BASE_URL}/api/generate-poc`;
-const SCAN_ENDPOINT = `${API_BASE_URL}/api/scan`;
+const POC_LIBRARY_ENDPOINT = `${API_BASE_URL}/api/pocs`;
 
 // 示例数据
 const EXAMPLES = {
@@ -90,19 +90,6 @@ const elements = {
     copyBtn: document.getElementById('copy-btn'),
     downloadBtn: document.getElementById('download-btn'),
     newBtn: document.getElementById('new-btn'),
-
-    // 扫描功能元素
-    targetUrl: document.getElementById('target-url'),
-    scanBtn: document.getElementById('scan-btn'),
-    scanResultSection: document.getElementById('scan-result-section'),
-    scanningState: document.getElementById('scanning-state'),
-    scanResultContent: document.getElementById('scan-result-content'),
-    vulnStatusCard: document.getElementById('vuln-status-card'),
-    vulnStatus: document.getElementById('vuln-status'),
-    scannedUrl: document.getElementById('scanned-url'),
-    scanReason: document.getElementById('scan-reason'),
-    scanDetailsBlock: document.getElementById('scan-details-block'),
-    scanDetails: document.getElementById('scan-details'),
 
     // Toast
     toast: document.getElementById('toast'),
@@ -222,19 +209,59 @@ function showResult(data) {
     elements.emptyState.style.display = 'none';
     elements.resultContent.style.display = 'block';
 
-    // 设置漏洞描述信息
-    elements.vulnDescription.textContent = data.original_vulnerability_info || '无漏洞描述信息';
+    // 隐藏原有的详细内容区域
+    elements.vulnDescription.parentElement.style.display = 'none';
+    elements.pocCode.parentElement.parentElement.style.display = 'none';
+    elements.explanationContent.parentElement.style.display = 'none';
+    document.querySelector('.action-buttons').style.display = 'none';
 
-    // 设置漏洞类型
-    elements.vulnType.textContent = data.vulnerability_type || '未知类型';
+    // 显示简化的结果信息
+    const resultContainer = document.getElementById('result-content');
 
-    // 设置POC代码
-    elements.pocCode.textContent = data.poc_code || '// 无代码生成';
+    // 判断是否可验证
+    const isVerifiable = data.verifiable !== false;
+    const vulnType = data.vulnerability_type || '未知类型';
 
-    // 设置说明
-    elements.explanationContent.textContent = data.explanation || '无说明信息';
+    resultContainer.innerHTML = `
+        <div style="text-align: center; padding: 3rem 2rem;">
+            <div style="margin-bottom: 2rem;">
+                <i class="fas fa-${isVerifiable ? 'check-circle' : 'hand-paper'}"
+                   style="font-size: 4rem; color: ${isVerifiable ? '#10b981' : '#f59e0b'};"></i>
+            </div>
 
-    // 不自动滚动，让用户自然往下看
+            <h2 style="font-size: 1.75rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-primary);">
+                ${isVerifiable ? '✅ 该漏洞可直接验证' : '⚠️ 该漏洞需人工操作'}
+            </h2>
+
+            <p style="font-size: 1.125rem; color: var(--text-secondary); margin-bottom: 2rem;">
+                漏洞类型：<span style="color: var(--primary-color); font-weight: 600;">${vulnType}</span>
+            </p>
+
+            <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+                        border: 2px solid var(--primary-color); border-radius: 1rem; padding: 1.5rem; margin-bottom: 2rem;">
+                <i class="fas fa-info-circle" style="color: var(--primary-color); margin-right: 0.5rem;"></i>
+                <span style="color: var(--text-primary); font-weight: 600;">已成功保存到POC脚本库</span>
+            </div>
+
+            <p style="color: var(--text-muted); font-size: 0.9375rem; margin-bottom: 2rem;">
+                ${isVerifiable
+                    ? '您可以前往"POC库"标签页查看并执行此POC脚本'
+                    : '您可以前往"POC库"标签页查看详细的人工操作指南'}
+            </p>
+
+            <div style="display: flex; gap: 1rem; justify-content: center;">
+                <button onclick="switchTab('library')" class="btn-primary" style="width: auto;">
+                    <i class="fas fa-database"></i>
+                    <span>前往POC库</span>
+                    <div class="btn-glow"></div>
+                </button>
+                <button onclick="newPOC()" class="btn-secondary" style="width: auto;">
+                    <i class="fas fa-plus"></i>
+                    <span>继续生成</span>
+                </button>
+            </div>
+        </div>
+    `;
 }
 
 /**
@@ -321,138 +348,8 @@ function newPOC() {
     elements.resultContent.style.display = 'none';
     elements.emptyState.style.display = 'block';
 
-    // 重置扫描结果显示
-    elements.targetUrl.value = '';
-    elements.scanResultSection.style.display = 'none';
-
     elements.vulnerabilityInfo.focus();
     showToast('已重置，可以输入新的漏洞信息', 'success');
-}
-
-// ========================================
-// 扫描功能
-// ========================================
-
-/**
- * 显示扫描中状态
- */
-function showScanning() {
-    elements.scanResultSection.style.display = 'block';
-    elements.scanningState.style.display = 'block';
-    elements.scanResultContent.style.display = 'none';
-    elements.scanBtn.disabled = true;
-    elements.scanBtn.innerHTML = `
-        <i class="fas fa-spinner fa-spin"></i>
-        <span>扫描中...</span>
-    `;
-}
-
-/**
- * 隐藏扫描中状态
- */
-function hideScanning() {
-    elements.scanningState.style.display = 'none';
-    elements.scanBtn.disabled = false;
-    elements.scanBtn.innerHTML = `
-        <i class="fas fa-search"></i>
-        <span>开始扫描</span>
-    `;
-}
-
-/**
- * 显示扫描结果
- */
-function showScanResult(result) {
-    elements.scanResultContent.style.display = 'block';
-
-    // 设置漏洞状态
-    const vulnerable = result.vulnerable;
-    const statusCard = elements.vulnStatusCard;
-    const statusValue = elements.vulnStatus;
-
-    if (vulnerable) {
-        statusCard.classList.add('vulnerable');
-        statusCard.classList.remove('safe');
-        statusValue.textContent = '存在漏洞';
-        statusValue.style.color = '#ef4444';
-    } else {
-        statusCard.classList.add('safe');
-        statusCard.classList.remove('vulnerable');
-        statusValue.textContent = '未发现漏洞';
-        statusValue.style.color = '#10b981';
-    }
-
-    // 设置目标URL
-    elements.scannedUrl.textContent = result.target_url || '-';
-
-    // 设置判断依据
-    elements.scanReason.textContent = result.reason || '未提供判断原因';
-
-    // 设置详细信息
-    if (result.details && result.details.trim()) {
-        elements.scanDetailsBlock.style.display = 'block';
-        elements.scanDetails.textContent = result.details;
-    } else {
-        elements.scanDetailsBlock.style.display = 'none';
-    }
-
-    // 不自动滚动，让用户自然查看结果
-}
-
-/**
- * 执行扫描
- */
-async function executeScan() {
-    const targetUrl = elements.targetUrl.value.trim();
-
-    // 验证输入
-    if (!targetUrl) {
-        showToast('请输入目标URL', 'warning');
-        elements.targetUrl.focus();
-        return;
-    }
-
-    // 显示扫描中状态
-    showScanning();
-
-    try {
-        // 调用扫描API（不再需要scan_id）
-        const response = await fetch(SCAN_ENDPOINT, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                target_url: targetUrl
-            })
-        });
-
-        // 解析响应
-        const data = await response.json();
-
-        // 隐藏扫描中状态
-        hideScanning();
-
-        // 处理结果
-        if (data.success) {
-            showScanResult(data);
-            showToast('扫描完成', 'success');
-        } else {
-            showToast(data.error || '扫描失败', 'error');
-            // 仍然显示结果（包含错误信息）
-            showScanResult({
-                vulnerable: false,
-                target_url: targetUrl,
-                reason: data.reason || '扫描失败',
-                details: data.error || ''
-            });
-        }
-
-    } catch (error) {
-        hideScanning();
-        console.error('扫描API调用失败:', error);
-        showToast(`网络错误: ${error.message}`, 'error');
-    }
 }
 
 // ========================================
@@ -534,8 +431,8 @@ async function generatePOC() {
                             hideLoading();
 
                             if (json.data.success) {
-                                // 标记所有步骤为完成
-                                updateProgressStep(3, 'completed', '已完成');
+                                // 标记步骤为完成
+                                updateProgressStep(1, 'completed', '已完成');
                                 showResult(json.data);
                                 showToast('POC代码生成成功', 'success');
                             } else {
@@ -559,6 +456,924 @@ async function generatePOC() {
         console.error('API调用失败:', error);
         showError(`网络错误: ${error.message}`);
     }
+}
+
+// ========================================
+// POC库管理功能
+// ========================================
+
+// 全局变量 - 当前查看的POC
+let currentPOC = null;
+
+/**
+ * 标签页切换
+ */
+function switchTab(tabName) {
+    const tabs = document.querySelectorAll('.nav-tab');
+    const generatorSection = document.querySelector('.generator-section');
+    const librarySection = document.querySelector('.library-section');
+
+    // 更新标签状态
+    tabs.forEach(tab => {
+        if (tab.getAttribute('data-tab') === tabName) {
+            tab.classList.add('active');
+        } else {
+            tab.classList.remove('active');
+        }
+    });
+
+    // 切换显示区域
+    if (tabName === 'generator') {
+        generatorSection.style.display = 'block';
+        librarySection.style.display = 'none';
+    } else if (tabName === 'library') {
+        generatorSection.style.display = 'none';
+        librarySection.style.display = 'block';
+
+        // 加载POC库数据
+        loadPOCLibrary();
+        loadStatistics();
+    }
+}
+
+/**
+ * 加载POC库列表
+ */
+async function loadPOCLibrary() {
+    const listContainer = document.getElementById('poc-list');
+    const loadingState = document.getElementById('poc-list-loading');
+    const emptyState = document.getElementById('poc-list-empty');
+
+    // 显示加载状态
+    loadingState.style.display = 'flex';
+    emptyState.style.display = 'none';
+    listContainer.innerHTML = '';
+
+    try {
+        // 获取筛选条件
+        const keyword = document.getElementById('search-keyword').value.trim();
+        const vulnType = document.getElementById('filter-vuln-type').value;
+        const pocType = document.getElementById('filter-poc-type').value;
+
+        // 获取当前选中的verifiable值
+        const activeTab = document.querySelector('.verifiable-tabs .tab-btn.active');
+        const verifiable = activeTab ? activeTab.dataset.verifiable : 'all';
+
+        // 构建查询参数
+        const params = new URLSearchParams();
+        if (keyword) params.append('keyword', keyword);
+        if (vulnType) params.append('vuln_type', vulnType);
+        if (pocType) params.append('poc_type', pocType);
+
+        // 添加verifiable参数
+        if (verifiable !== 'all') {
+            params.append('verifiable', verifiable === 'true' ? 'true' : 'false');
+        }
+
+        params.append('limit', '50');
+
+        // 调用API
+        const response = await fetch(`${POC_LIBRARY_ENDPOINT}/search?${params}`);
+        const data = await response.json();
+
+        // 隐藏加载状态
+        loadingState.style.display = 'none';
+
+        // 显示结果
+        if (data.success && data.pocs && data.pocs.length > 0) {
+            renderPOCList(data.pocs);
+        } else {
+            emptyState.style.display = 'flex';
+        }
+
+    } catch (error) {
+        console.error('加载POC库失败:', error);
+        loadingState.style.display = 'none';
+        showToast('加载POC库失败', 'error');
+    }
+}
+
+/**
+ * 渲染POC列表
+ */
+function renderPOCList(pocs) {
+    const listContainer = document.getElementById('poc-list');
+    listContainer.innerHTML = '';
+
+    pocs.forEach(poc => {
+        const pocItem = document.createElement('div');
+        pocItem.className = 'poc-card-new';
+
+        const isVerifiable = poc.verifiable !== 0;
+
+        // 截断描述到100个字符
+        const shortDesc = poc.vuln_description ?
+            (poc.vuln_description.length > 100 ? poc.vuln_description.substring(0, 100) + '...' : poc.vuln_description) :
+            '暂无描述';
+
+        pocItem.innerHTML = `
+            <div class="poc-card-left">
+                <!-- 漏洞信息 -->
+                <div class="poc-card-info" onclick="showPOCDetail(${poc.id})">
+                    <div class="poc-header-new">
+                        <div class="poc-name">${poc.vuln_name || `POC-${poc.id}`}</div>
+                        <div class="poc-badges">
+                            <span class="poc-type-badge ${poc.poc_type}">${poc.poc_type.toUpperCase()}</span>
+                            ${isVerifiable ?
+                                '<span class="poc-type-badge verifiable"><i class="fas fa-check-circle"></i> 可验证</span>' :
+                                '<span class="poc-type-badge manual"><i class="fas fa-hand-paper"></i> 需人工</span>'
+                            }
+                        </div>
+                    </div>
+                    <div class="poc-description">${shortDesc}</div>
+                    <div class="poc-meta">
+                        <span><i class="fas fa-bug"></i> ${poc.vuln_type}</span>
+                        <span><i class="fas fa-calendar"></i> ${formatDate(poc.create_time)}</span>
+                    </div>
+                </div>
+
+                ${isVerifiable ? `
+                <!-- URL输入和验证区域 -->
+                <div class="poc-execute-area">
+                    <input type="text"
+                           class="poc-url-input"
+                           id="url-input-${poc.id}"
+                           placeholder="输入目标URL (如: http://192.168.1.100:8080)"
+                           onclick="event.stopPropagation()">
+                    <button class="btn-execute" onclick="event.stopPropagation(); executeInlinePOC(${poc.id})">
+                        <i class="fas fa-play"></i> 验证
+                    </button>
+                </div>
+                ` : ''}
+            </div>
+
+            <!-- 右侧操作按钮 -->
+            <div class="poc-card-actions">
+                ${isVerifiable ? `
+                    <button class="btn-action" onclick="event.stopPropagation(); viewPOCCode(${poc.id})" title="查看脚本">
+                        <i class="fas fa-code"></i>
+                        <span>查看脚本</span>
+                    </button>
+                    <button class="btn-action" onclick="event.stopPropagation(); downloadPOCFile(${poc.id})" title="下载脚本">
+                        <i class="fas fa-download"></i>
+                        <span>下载</span>
+                    </button>
+                ` : ''}
+                <button class="btn-action btn-action-danger" onclick="event.stopPropagation(); deletePOCFromCard(${poc.id})" title="删除POC">
+                    <i class="fas fa-trash"></i>
+                    <span>删除</span>
+                </button>
+            </div>
+        `;
+
+        listContainer.appendChild(pocItem);
+    });
+}
+
+/**
+ * 格式化日期
+ */
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    if (days === 0) return '今天';
+    if (days === 1) return '昨天';
+    if (days < 7) return `${days}天前`;
+    if (days < 30) return `${Math.floor(days / 7)}周前`;
+    if (days < 365) return `${Math.floor(days / 30)}个月前`;
+    return `${Math.floor(days / 365)}年前`;
+}
+
+/**
+ * 显示POC详情模态框（只查看详情，不执行）
+ */
+async function showPOCDetail(pocId) {
+    const modal = document.getElementById('poc-detail-modal');
+
+    try {
+        // 调用API获取详情
+        const response = await fetch(`${POC_LIBRARY_ENDPOINT}/${pocId}`);
+        const data = await response.json();
+
+        if (!data.success || !data.poc) {
+            showToast('获取POC详情失败', 'error');
+            return;
+        }
+
+        const poc = data.poc;
+        currentPOC = poc;
+
+        // 获取模态框的body元素
+        const modalBody = document.querySelector('#poc-detail-modal .modal-body');
+
+        // 根据verifiable字段显示不同内容
+        if (poc.verifiable === 0 && poc.manual_steps) {
+            // 不可验证：显示人工操作指南
+            try {
+                const manualSteps = typeof poc.manual_steps === 'string' ?
+                    JSON.parse(poc.manual_steps) : poc.manual_steps;
+
+                const manualGuideHTML = renderManualGuide(manualSteps);
+
+                modalBody.innerHTML = `
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <span class="detail-label">漏洞类型:</span>
+                            <span class="detail-value">${poc.vuln_type || '-'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">POC类型:</span>
+                            <span class="detail-value">${poc.poc_type.toUpperCase()}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">创建时间:</span>
+                            <span class="detail-value">${new Date(poc.create_time).toLocaleString()}</span>
+                        </div>
+                    </div>
+
+                    <div class="detail-description">
+                        <div class="detail-section-title">
+                            <i class="fas fa-info-circle"></i>
+                            漏洞描述
+                        </div>
+                        <div class="detail-section-content">
+                            ${poc.vuln_description || '暂无描述'}
+                        </div>
+                    </div>
+
+                    ${manualGuideHTML}
+                `;
+            } catch (e) {
+                console.error('解析manual_steps失败:', e);
+                modalBody.innerHTML = `
+                    <div style="color: var(--error-color); padding: 1rem;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        无法解析人工操作指南数据
+                    </div>
+                `;
+            }
+        } else {
+            // 可验证：只显示漏洞描述，不显示执行区域
+            modalBody.innerHTML = `
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">漏洞类型:</span>
+                        <span class="detail-value">${poc.vuln_type || '-'}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">POC类型:</span>
+                        <span class="detail-value">${poc.poc_type.toUpperCase()}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">创建时间:</span>
+                        <span class="detail-value">${new Date(poc.create_time).toLocaleString()}</span>
+                    </div>
+                </div>
+
+                <div class="detail-description">
+                    <div class="detail-section-title">
+                        <i class="fas fa-info-circle"></i>
+                        漏洞描述
+                    </div>
+                    <div class="detail-section-content">
+                        ${poc.vuln_description || '暂无描述'}
+                    </div>
+                </div>
+
+                <div style="margin-top: 2rem; padding: 1rem; background: rgba(99, 102, 241, 0.1); border-radius: 0.5rem; text-align: center;">
+                    <i class="fas fa-info-circle" style="color: var(--primary-color); margin-right: 0.5rem;"></i>
+                    <span style="color: var(--text-secondary);">提示：POC脚本已在列表中，可直接在卡片上输入URL进行验证</span>
+                </div>
+            `;
+        }
+
+        // 显示模态框
+        modal.style.display = 'flex';
+
+    } catch (error) {
+        console.error('获取POC详情失败:', error);
+        showToast('获取POC详情失败', 'error');
+    }
+}
+
+/**
+ * 关闭POC详情模态框
+ */
+function closePOCDetailModal() {
+    const modal = document.getElementById('poc-detail-modal');
+    modal.style.display = 'none';
+    currentPOC = null;
+}
+
+/**
+ * 渲染人工操作指南
+ */
+function renderManualGuide(manualSteps) {
+    let html = `
+        <div class="manual-guide-section">
+            <div class="manual-guide-header">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>该漏洞无法通过单个POC脚本自动化验证</h3>
+            </div>
+
+            <div class="manual-guide-notice">
+                <strong>注意:</strong> 此漏洞需要人工操作和判断,请按照以下步骤进行验证。
+            </div>
+    `;
+
+    // 渲染所需工具
+    if (manualSteps.required_tools && manualSteps.required_tools.length > 0) {
+        html += `
+            <div class="manual-tools-section">
+                <h4><i class="fas fa-tools"></i> 所需工具</h4>
+        `;
+        manualSteps.required_tools.forEach(tool => {
+            html += `
+                <div class="tool-item">
+                    <div class="tool-item-header">
+                        <span class="tool-name">${tool.name}</span>
+                        ${tool.version ? `<span class="tool-version">版本: ${tool.version}</span>` : ''}
+                    </div>
+                    <div class="tool-purpose">${tool.purpose}</div>
+                    ${tool.install_command ? `
+                        <div class="tool-install">
+                            <strong>安装命令:</strong><br>
+                            <code>${tool.install_command}</code>
+                        </div>
+                    ` : ''}
+                    ${tool.download_url ? `
+                        <div style="margin-top: 0.5rem;">
+                            <a href="${tool.download_url}" target="_blank" class="btn-link">
+                                <i class="fas fa-download"></i> 下载链接
+                            </a>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+        html += `</div>`;
+    }
+
+    // 渲染操作步骤
+    if (manualSteps.steps && manualSteps.steps.length > 0) {
+        html += `
+            <div class="manual-steps-section">
+                <h4><i class="fas fa-list-ol"></i> 操作步骤</h4>
+        `;
+        manualSteps.steps.forEach(step => {
+            html += `
+                <div class="step-item">
+                    <div class="step-header">
+                        <span class="step-number">${step.step_number}</span>
+                        <span class="step-title">${step.title}</span>
+                    </div>
+                    <div class="step-description">${step.description}</div>
+
+                    ${step.commands && step.commands.length > 0 ? `
+                        <div class="step-commands">
+                            ${step.commands.map(cmd => `<div class="step-command">$ ${cmd}</div>`).join('')}
+                        </div>
+                    ` : ''}
+
+                    ${step.expected_result ? `
+                        <div class="step-expected">
+                            <div class="step-expected-label">预期结果:</div>
+                            <div class="step-expected-text">${step.expected_result}</div>
+                        </div>
+                    ` : ''}
+
+                    ${step.notes ? `
+                        <div class="step-notes">
+                            <div class="step-notes-label">注意事项:</div>
+                            <div class="step-notes-text">${step.notes}</div>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+        html += `</div>`;
+    }
+
+    // 渲染验证结果说明
+    if (manualSteps.verification) {
+        html += `
+            <div class="manual-verification-section">
+                <h4><i class="fas fa-clipboard-check"></i> 如何判断漏洞存在</h4>
+
+                ${manualSteps.verification.success_indicators ? `
+                    <div class="verification-indicators">
+                        <div class="indicator-label success">
+                            <i class="fas fa-check-circle"></i> 成功标志:
+                        </div>
+                        <ul class="indicator-list success">
+                            ${manualSteps.verification.success_indicators.map(indicator =>
+                                `<li>${indicator}</li>`
+                            ).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+
+                ${manualSteps.verification.failure_indicators ? `
+                    <div class="verification-indicators">
+                        <div class="indicator-label failure">
+                            <i class="fas fa-times-circle"></i> 失败标志:
+                        </div>
+                        <ul class="indicator-list failure">
+                            ${manualSteps.verification.failure_indicators.map(indicator =>
+                                `<li>${indicator}</li>`
+                            ).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+
+                ${manualSteps.verification.example_output ? `
+                    <div style="margin-top: 1rem;">
+                        <strong>示例输出:</strong>
+                        <div class="example-output">${manualSteps.verification.example_output}</div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    html += `</div>`;
+    return html;
+}
+
+/**
+ * 执行POC
+ */
+async function executePOC() {
+    if (!currentPOC) {
+        showToast('请先选择POC', 'warning');
+        return;
+    }
+
+    const targetUrl = document.getElementById('execute-target-url').value.trim();
+    if (!targetUrl) {
+        showToast('请输入目标URL', 'warning');
+        return;
+    }
+
+    const executeBtn = document.getElementById('execute-poc-btn');
+    const resultContainer = document.getElementById('execute-result');
+
+    // 禁用按钮
+    executeBtn.disabled = true;
+    executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 执行中...';
+
+    try {
+        const response = await fetch(`${POC_LIBRARY_ENDPOINT}/${currentPOC.id}/execute`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                target_url: targetUrl
+            })
+        });
+
+        const data = await response.json();
+
+        // 显示结果
+        resultContainer.style.display = 'block';
+
+        if (data.success && data.result) {
+            // 获取POC脚本返回的验证结果
+            const pocResult = data.result;
+            const vulnerable = pocResult.vulnerable;
+
+            if (vulnerable) {
+                // 漏洞存在
+                resultContainer.className = 'execute-result success';
+                let resultHtml = `
+                    <h4 style="color: #10b981; margin-bottom: 0.5rem;">
+                        <i class="fas fa-check-circle"></i> 检测到漏洞
+                    </h4>
+                    <div style="margin-top: 0.5rem;">
+                        <p><strong>目标URL:</strong> ${data.target_url || targetUrl}</p>
+                        <p><strong>判断依据:</strong> ${pocResult.reason || '未提供判断依据'}</p>
+                `;
+
+                if (pocResult.details) {
+                    resultHtml += `
+                        <div style="margin-top: 0.5rem;">
+                            <strong>详细信息:</strong>
+                            <pre style="white-space: pre-wrap; background: rgba(0,0,0,0.05); padding: 0.5rem; border-radius: 4px; margin-top: 0.25rem; max-height: 400px; overflow-y: auto;">${typeof pocResult.details === 'object' ? JSON.stringify(pocResult.details, null, 2) : pocResult.details}</pre>
+                        </div>
+                    `;
+                }
+
+                resultHtml += '</div>';
+                resultContainer.innerHTML = resultHtml;
+                showToast('检测到漏洞！', 'warning');
+            } else {
+                // 未发现漏洞
+                resultContainer.className = 'execute-result';
+                let resultHtml = `
+                    <h4 style="color: #6b7280; margin-bottom: 0.5rem;">
+                        <i class="fas fa-info-circle"></i> 未发现漏洞
+                    </h4>
+                    <div style="margin-top: 0.5rem;">
+                        <p><strong>目标URL:</strong> ${data.target_url || targetUrl}</p>
+                        <p><strong>判断依据:</strong> ${pocResult.reason || '未提供判断依据'}</p>
+                `;
+
+                if (pocResult.details) {
+                    resultHtml += `
+                        <div style="margin-top: 0.5rem;">
+                            <strong>详细信息:</strong>
+                            <pre style="white-space: pre-wrap; background: rgba(0,0,0,0.05); padding: 0.5rem; border-radius: 4px; margin-top: 0.25rem; max-height: 400px; overflow-y: auto;">${typeof pocResult.details === 'object' ? JSON.stringify(pocResult.details, null, 2) : pocResult.details}</pre>
+                        </div>
+                    `;
+                }
+
+                resultHtml += '</div>';
+                resultContainer.innerHTML = resultHtml;
+                showToast('POC执行完成', 'success');
+            }
+        } else {
+            // 执行失败
+            resultContainer.className = 'execute-result error';
+            resultContainer.innerHTML = `
+                <h4 style="color: #ef4444; margin-bottom: 0.5rem;">
+                    <i class="fas fa-times-circle"></i> 执行失败
+                </h4>
+                <pre style="white-space: pre-wrap; margin: 0;">${data.error || '执行失败'}</pre>
+            `;
+            showToast('POC执行失败', 'error');
+        }
+
+    } catch (error) {
+        console.error('执行POC失败:', error);
+        resultContainer.style.display = 'block';
+        resultContainer.className = 'execute-result error';
+        resultContainer.innerHTML = `
+            <h4 style="color: #ef4444; margin-bottom: 0.5rem;">
+                <i class="fas fa-times-circle"></i> 网络错误
+            </h4>
+            <p>${error.message}</p>
+        `;
+        showToast('执行POC失败', 'error');
+    } finally {
+        // 恢复按钮
+        executeBtn.disabled = false;
+        executeBtn.innerHTML = '<i class="fas fa-rocket"></i> 执行';
+    }
+}
+
+/**
+ * 从卡片删除POC
+ */
+async function deletePOCFromCard(pocId) {
+    if (!confirm(`确定要删除此POC吗？此操作不可恢复！`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${POC_LIBRARY_ENDPOINT}/${pocId}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('POC已删除', 'success');
+            loadPOCLibrary();
+            loadStatistics();
+        } else {
+            showToast(data.error || '删除失败', 'error');
+        }
+
+    } catch (error) {
+        console.error('删除POC失败:', error);
+        showToast('删除POC失败', 'error');
+    }
+}
+
+/**
+ * 在POC卡片上直接执行验证
+ */
+async function executeInlinePOC(pocId) {
+    const urlInput = document.getElementById(`url-input-${pocId}`);
+    const targetUrl = urlInput.value.trim();
+
+    if (!targetUrl) {
+        showToast('请输入目标URL', 'warning');
+        urlInput.focus();
+        return;
+    }
+
+    // 显示加载状态
+    const executeBtn = event.target.closest('.btn-execute');
+    const originalHTML = executeBtn.innerHTML;
+    executeBtn.disabled = true;
+    executeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 验证中...';
+
+    try {
+        const response = await fetch(`${POC_LIBRARY_ENDPOINT}/${pocId}/execute`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                target_url: targetUrl
+            })
+        });
+
+        const data = await response.json();
+
+        // 恢复按钮
+        executeBtn.disabled = false;
+        executeBtn.innerHTML = originalHTML;
+
+        // 显示结果对话框
+        showExecutionResultDialog(data, targetUrl);
+
+    } catch (error) {
+        console.error('执行POC失败:', error);
+        executeBtn.disabled = false;
+        executeBtn.innerHTML = originalHTML;
+        showToast('执行POC失败', 'error');
+    }
+}
+
+/**
+ * 显示执行结果对话框
+ */
+function showExecutionResultDialog(data, targetUrl) {
+    const modal = document.createElement('div');
+    modal.className = 'result-dialog-overlay';
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    };
+
+    let resultHTML = '';
+    if (data.success && data.result) {
+        const pocResult = data.result;
+        const vulnerable = pocResult.vulnerable;
+
+        if (vulnerable) {
+            // 发现漏洞
+            resultHTML = `
+                <div class="result-dialog-icon success">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <h3 class="result-dialog-title" style="color: #ef4444;">检测到漏洞！</h3>
+                <div class="result-dialog-content">
+                    <div class="result-item">
+                        <strong>目标URL:</strong>
+                        <span>${data.target_url || targetUrl}</span>
+                    </div>
+                    <div class="result-item">
+                        <strong>判断依据:</strong>
+                        <span>${pocResult.reason || '未提供判断依据'}</span>
+                    </div>
+                    ${pocResult.details ? `
+                        <div class="result-item">
+                            <strong>详细信息:</strong>
+                            <pre class="result-details">${typeof pocResult.details === 'object' ? JSON.stringify(pocResult.details, null, 2) : pocResult.details}</pre>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        } else {
+            // 未发现漏洞
+            resultHTML = `
+                <div class="result-dialog-icon info">
+                    <i class="fas fa-info-circle"></i>
+                </div>
+                <h3 class="result-dialog-title">未发现漏洞</h3>
+                <div class="result-dialog-content">
+                    <div class="result-item">
+                        <strong>目标URL:</strong>
+                        <span>${data.target_url || targetUrl}</span>
+                    </div>
+                    <div class="result-item">
+                        <strong>判断依据:</strong>
+                        <span>${pocResult.reason || '未提供判断依据'}</span>
+                    </div>
+                    ${pocResult.details ? `
+                        <div class="result-item">
+                            <strong>详细信息:</strong>
+                            <pre class="result-details">${typeof pocResult.details === 'object' ? JSON.stringify(pocResult.details, null, 2) : pocResult.details}</pre>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+    } else {
+        // 执行失败
+        resultHTML = `
+            <div class="result-dialog-icon error">
+                <i class="fas fa-times-circle"></i>
+            </div>
+            <h3 class="result-dialog-title" style="color: #ef4444;">执行失败</h3>
+            <div class="result-dialog-content">
+                <div class="result-item">
+                    <strong>错误信息:</strong>
+                    <pre class="result-details">${data.error || '未知错误'}</pre>
+                </div>
+            </div>
+        `;
+    }
+
+    modal.innerHTML = `
+        <div class="result-dialog">
+            ${resultHTML}
+            <button class="result-dialog-close" onclick="this.closest('.result-dialog-overlay').remove()">
+                <i class="fas fa-times"></i> 关闭
+            </button>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+}
+
+/**
+ * 查看POC代码
+ */
+async function viewPOCCode(pocId) {
+    try {
+        const response = await fetch(`${POC_LIBRARY_ENDPOINT}/${pocId}`);
+        const data = await response.json();
+
+        if (!data.success || !data.poc) {
+            showToast('获取POC代码失败', 'error');
+            return;
+        }
+
+        const poc = data.poc;
+
+        // 读取POC文件内容
+        const fileResponse = await fetch(`/api/pocs/${pocId}/code`);
+        let pocCode = '';
+
+        if (fileResponse.ok) {
+            const fileData = await fileResponse.json();
+            pocCode = fileData.code || '无法读取代码';
+        } else {
+            pocCode = '无法读取代码文件';
+        }
+
+        // 显示代码对话框
+        const modal = document.createElement('div');
+        modal.className = 'result-dialog-overlay';
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                document.body.removeChild(modal);
+            }
+        };
+
+        modal.innerHTML = `
+            <div class="result-dialog code-dialog">
+                <div class="result-dialog-header">
+                    <h3><i class="fas fa-code"></i> ${poc.vuln_name}</h3>
+                    <button class="result-dialog-close-btn" onclick="this.closest('.result-dialog-overlay').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="code-dialog-content">
+                    <pre><code class="language-python">${pocCode}</code></pre>
+                </div>
+                <div class="result-dialog-footer">
+                    <button class="btn-secondary" onclick="copyPOCCode(${pocId})">
+                        <i class="fas fa-copy"></i> 复制代码
+                    </button>
+                    <button class="btn-secondary" onclick="this.closest('.result-dialog-overlay').remove()">
+                        <i class="fas fa-times"></i> 关闭
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+    } catch (error) {
+        console.error('查看POC代码失败:', error);
+        showToast('查看POC代码失败', 'error');
+    }
+}
+
+/**
+ * 复制POC代码
+ */
+async function copyPOCCode(pocId) {
+    try {
+        const codeElement = document.querySelector('.code-dialog-content code');
+        const code = codeElement.textContent;
+
+        await navigator.clipboard.writeText(code);
+        showToast('代码已复制到剪贴板', 'success');
+    } catch (error) {
+        showToast('复制失败', 'error');
+    }
+}
+
+/**
+ * 下载POC文件
+ */
+async function downloadPOCFile(pocId) {
+    try {
+        const response = await fetch(`${POC_LIBRARY_ENDPOINT}/${pocId}`);
+        const data = await response.json();
+
+        if (!data.success || !data.poc) {
+            showToast('获取POC信息失败', 'error');
+            return;
+        }
+
+        const poc = data.poc;
+
+        // 读取POC文件内容
+        const fileResponse = await fetch(`/api/pocs/${pocId}/code`);
+
+        if (fileResponse.ok) {
+            const fileData = await fileResponse.json();
+            const pocCode = fileData.code || '';
+
+            // 创建下载
+            const blob = new Blob([pocCode], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${poc.vuln_type}_${poc.id}.py`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast('POC文件已下载', 'success');
+        } else {
+            showToast('下载失败', 'error');
+        }
+
+    } catch (error) {
+        console.error('下载POC文件失败:', error);
+        showToast('下载POC文件失败', 'error');
+    }
+}
+
+/**
+ * 加载统计信息
+ */
+async function loadStatistics() {
+    try {
+        // 加载统计数据
+        const statsResponse = await fetch(`${POC_LIBRARY_ENDPOINT}/statistics`);
+        const statsData = await statsResponse.json();
+
+        if (statsData.success) {
+            const stats = statsData.statistics;
+            document.getElementById('stat-total').textContent = stats.total_pocs || 0;
+            document.getElementById('stat-python').textContent = stats.python_pocs || 0;
+            document.getElementById('stat-nuclei').textContent = stats.nuclei_pocs || 0;
+        }
+
+        // 加载漏洞类型列表
+        const typesResponse = await fetch(`${POC_LIBRARY_ENDPOINT}/vuln-types`);
+        const typesData = await typesResponse.json();
+
+        if (typesData.success && typesData.vuln_types) {
+            const filterSelect = document.getElementById('filter-vuln-type');
+
+            // 清空现有选项（保留"所有类型"）
+            filterSelect.innerHTML = '<option value="">所有漏洞类型</option>';
+
+            // 添加漏洞类型选项
+            typesData.vuln_types.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type;
+                option.textContent = type.toUpperCase();
+                filterSelect.appendChild(option);
+            });
+        }
+
+    } catch (error) {
+        console.error('加载统计信息失败:', error);
+    }
+}
+
+/**
+ * 刷新POC库
+ */
+function refreshPOCLibrary() {
+    // 清空搜索条件
+    document.getElementById('search-keyword').value = '';
+    document.getElementById('filter-vuln-type').value = '';
+    document.getElementById('filter-poc-type').value = '';
+
+    // 重新加载
+    loadPOCLibrary();
+    loadStatistics();
+
+    showToast('已刷新', 'success');
 }
 
 // ========================================
@@ -608,15 +1423,89 @@ function initializeEventListeners() {
     // 新建按钮
     elements.newBtn.addEventListener('click', newPOC);
 
-    // 扫描按钮点击事件
-    elements.scanBtn.addEventListener('click', executeScan);
+    // POC库管理相关事件
+    // 可验证性选项卡切换
+    const verifiableTabs = document.querySelectorAll('.verifiable-tabs .tab-btn');
+    verifiableTabs.forEach(btn => {
+        btn.addEventListener('click', function() {
+            // 移除所有active类
+            verifiableTabs.forEach(b => b.classList.remove('active'));
+            // 添加active类到当前按钮
+            this.classList.add('active');
 
-    // URL输入框回车键触发扫描
-    elements.targetUrl.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !elements.scanBtn.disabled) {
-            executeScan();
-        }
+            // 刷新POC列表
+            loadPOCLibrary();
+        });
     });
+
+    // 标签页切换
+    const navTabs = document.querySelectorAll('.nav-tab');
+    navTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabName = tab.getAttribute('data-tab');
+            switchTab(tabName);
+        });
+    });
+
+    // 搜索框输入事件（延迟搜索）
+    let searchTimeout;
+    const searchKeywordInput = document.getElementById('search-keyword');
+    if (searchKeywordInput) {
+        searchKeywordInput.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                loadPOCLibrary();
+            }, 500);
+        });
+    }
+
+    // 筛选条件变化
+    const filterVulnType = document.getElementById('filter-vuln-type');
+    const filterPocType = document.getElementById('filter-poc-type');
+    if (filterVulnType) {
+        filterVulnType.addEventListener('change', loadPOCLibrary);
+    }
+    if (filterPocType) {
+        filterPocType.addEventListener('change', loadPOCLibrary);
+    }
+
+    // 刷新按钮
+    const refreshBtn = document.getElementById('refresh-btn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', refreshPOCLibrary);
+    }
+
+    // 模态框关闭按钮
+    const modalCloseButtons = document.querySelectorAll('.modal-close');
+    modalCloseButtons.forEach(btn => {
+        btn.addEventListener('click', closePOCDetailModal);
+    });
+
+    // 点击模态框背景关闭
+    const pocDetailModal = document.getElementById('poc-detail-modal');
+    if (pocDetailModal) {
+        pocDetailModal.addEventListener('click', (e) => {
+            if (e.target === pocDetailModal) {
+                closePOCDetailModal();
+            }
+        });
+    }
+
+    // 执行POC按钮
+    const executePocBtn = document.getElementById('execute-poc-btn');
+    if (executePocBtn) {
+        executePocBtn.addEventListener('click', executePOC);
+    }
+
+    // 执行目标URL回车键触发执行
+    const executeTargetUrl = document.getElementById('execute-target-url');
+    if (executeTargetUrl) {
+        executeTargetUrl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                executePOC();
+            }
+        });
+    }
 }
 
 // ========================================

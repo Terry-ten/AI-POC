@@ -58,9 +58,6 @@ nul
 # Claude本地设置
 .claude/settings.local.json
 
-# 扫描结果
-saved_scans/
-
 # POC库文件（保留目录结构）
 pocs/*.db
 pocs/python/*.py

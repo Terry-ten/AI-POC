@@ -2,7 +2,7 @@
 数据模型定义
 """
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Dict, Any
 
 
 class VulnerabilityRequest(BaseModel):
@@ -24,8 +24,10 @@ class PocResponse(BaseModel):
     success: bool = Field(..., description="是否成功生成")
     vulnerability_type: Optional[str] = Field(None, description="识别出的Web漏洞类型")
     original_vulnerability_info: Optional[str] = Field(None, description="原始漏洞信息")
-    poc_code: Optional[str] = Field(None, description="生成的POC验证代码")
+    poc_code: Optional[str] = Field(None, description="生成的POC验证代码（可验证时）")
     explanation: Optional[str] = Field(None, description="代码说明和使用方法")
+    verifiable: bool = Field(True, description="是否可以单POC脚本自动化验证")
+    manual_steps: Optional[Dict[str, Any]] = Field(None, description="人工操作指南（不可验证时）")
     error: Optional[str] = Field(None, description="错误信息")
     warning: str = Field(..., description="安全警告")
 
@@ -37,6 +39,8 @@ class PocResponse(BaseModel):
                 "original_vulnerability_info": "目标网站存在SQL注入漏洞，位于登录页面的username参数",
                 "poc_code": "# POC验证代码\nimport requests\n...",
                 "explanation": "该代码用于验证SQL注入漏洞是否存在，请在授权环境下使用",
+                "verifiable": True,
+                "manual_steps": None,
                 "error": None,
                 "warning": "⚠️ 仅用于授权测试"
             }

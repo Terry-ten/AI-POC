@@ -3,14 +3,14 @@ API路由定义
 """
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
-from models.schemas import VulnerabilityRequest, PocResponse, ScanRequest, ScanResponse
+from models.schemas import VulnerabilityRequest, PocResponse, ScanRequest
 from services.llm_service import llm_service
-from services.scanner_service import scanner_service
 from services.poc_library_service import poc_library_service
 from config import settings
 import logging
 import json
 import asyncio
+from pathlib import Path
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -18,17 +18,15 @@ logger = logging.getLogger(__name__)
 
 @router.post(
     "/generate-poc",
-    summary="生成并验证Web漏洞POC代码",
-    description="三步流程：GLM-4.6生成初始POC → DeepSeek-R1评审 → GLM-4.6重新生成最终POC（支持实时进度反馈）",
+    summary="生成Web漏洞POC代码",
+    description="使用GLM-4.6生成POC代码（支持实时进度反馈）",
 )
 async def generate_poc(request: VulnerabilityRequest):
     """
-    接收Web漏洞信息，通过三步验证流程生成高质量POC代码（流式响应）
+    接收Web漏洞信息，生成POC代码（流式响应）
 
     流程：
-    1. 使用 GLM-4.6 生成初始POC，保存到 testscan.py 和 prompt.txt
-    2. 使用 DeepSeek-R1 评审代码，保存评审意见到 evaluate.txt
-    3. 使用 GLM-4.6 根据评审重新生成，保存最终版本到 scan.py
+    1. 使用 GLM-4.6 生成POC，保存到 POC库
 
     - **vulnerability_info**: 漏洞信息，可以是描述、CVE编号、HTTP数据包等
     - **target_info**: 目标系统信息（可选）
@@ -37,95 +35,61 @@ async def generate_poc(request: VulnerabilityRequest):
     async def generate_stream():
         try:
             logger.info("="*80)
-            logger.info("开始POC生成和验证流程")
+            logger.info("开始POC生成流程")
             logger.info("="*80)
 
             # 发送开始消息
             yield f"data: {json.dumps({'type': 'status', 'step': 0, 'message': '开始生成流程...'}, ensure_ascii=False)}\n\n"
             await asyncio.sleep(0.1)
 
-            # ===== 第一步：使用 GLM-4.6 生成初始POC =====
-            yield f"data: {json.dumps({'type': 'status', 'step': 1, 'message': '【第1步/3】正在使用 GLM-4.6 生成初始POC代码...'}, ensure_ascii=False)}\n\n"
-            logger.info("【第1步/3】使用 GLM-4.6 生成初始POC...")
+            # 使用 GLM-4.6 生成POC
+            yield f"data: {json.dumps({'type': 'status', 'step': 1, 'message': '正在使用 GLM-4.6 生成POC代码...'}, ensure_ascii=False)}\n\n"
+            logger.info("使用 GLM-4.6 生成POC...")
 
-            initial_result = await llm_service.generate_initial_poc(
+            result = await llm_service.generate_initial_poc(
                 vulnerability_info=request.vulnerability_info,
                 target_info=request.target_info,
             )
 
-            # 保存初始POC到 testscan.py 和 prompt.txt
-            scanner_service.save_initial_poc(
-                vulnerability_type=initial_result.get("vulnerability_type") or "未知类型",
-                vulnerability_info=initial_result.get("original_vulnerability_info") or request.vulnerability_info,
-                poc_code=initial_result.get("poc_code") or "",
-                explanation=initial_result.get("explanation") or ""
-            )
-            logger.info("✅ 初始POC生成完成，已保存到 testscan.py 和 prompt.txt")
-            yield f"data: {json.dumps({'type': 'status', 'step': 1, 'message': '✅ 第1步完成：初始POC已生成并保存'}, ensure_ascii=False)}\n\n"
-            await asyncio.sleep(0.1)
-
-            # ===== 第二步：使用 DeepSeek-R1 评审代码 =====
-            yield f"data: {json.dumps({'type': 'status', 'step': 2, 'message': '【第2步/3】正在使用 DeepSeek-R1 评审代码质量...'}, ensure_ascii=False)}\n\n"
-            logger.info("【第2步/3】使用 DeepSeek-R1 评审代码...")
-
-            prompt_content = scanner_service.get_prompt_content()
-            evaluation = await llm_service.evaluate_poc_code(prompt_content)
-
-            # 保存评审意见到 evaluate.txt
-            scanner_service.save_evaluation(evaluation)
-            logger.info("✅ 代码评审完成，已保存到 evaluate.txt")
-            yield f"data: {json.dumps({'type': 'status', 'step': 2, 'message': '✅ 第2步完成：代码评审已完成'}, ensure_ascii=False)}\n\n"
-            await asyncio.sleep(0.1)
-
-            # ===== 第三步：使用 GLM-4.6 根据评审重新生成 =====
-            yield f"data: {json.dumps({'type': 'status', 'step': 3, 'message': '【第3步/3】正在使用 GLM-4.6 根据评审重新生成最终POC...'}, ensure_ascii=False)}\n\n"
-            logger.info("【第3步/3】使用 GLM-4.6 根据评审重新生成POC...")
-
-            evaluate_content = scanner_service.get_evaluate_content()
-            final_result = await llm_service.regenerate_poc_code(evaluate_content)
-
-            # 保存最终版本到 scan.py
-            scanner_service.save_scan_function(
-                vulnerability_type=final_result.get("vulnerability_type") or "未知类型",
-                vulnerability_info=final_result.get("original_vulnerability_info") or request.vulnerability_info,
-                poc_code=final_result.get("poc_code") or "",
-                explanation=final_result.get("explanation") or ""
-            )
-            logger.info("✅ 最终POC生成完成，已保存到 scan.py")
+            verifiable = result.get("verifiable", True)
 
             # 保存到POC库
             try:
                 poc_id = poc_library_service.save_poc(
-                    vuln_type=final_result.get("vulnerability_type") or "unknown",
-                    vuln_info=final_result.get("original_vulnerability_info") or request.vulnerability_info,
-                    poc_code=final_result.get("poc_code") or "",
-                    explanation=final_result.get("explanation") or "",
-                    poc_type="python",
+                    vuln_type=result.get("vulnerability_type") or "unknown",
+                    vuln_info=result.get("original_vulnerability_info") or request.vulnerability_info,
+                    poc_code=result.get("poc_code"),
+                    explanation=result.get("explanation") or "",
+                    poc_type="python" if verifiable else "manual",
                     tags=["auto-generated", "llm"],
-                    metadata={"target_info": request.target_info}
+                    metadata={"target_info": request.target_info},
+                    verifiable=verifiable,
+                    manual_steps=result.get("manual_steps")
                 )
-                logger.info(f"✅ POC已保存到库，ID: {poc_id}")
+                logger.info(f"✅ {'可验证POC' if verifiable else '人工操作指南'}已保存到库，ID: {poc_id}")
             except Exception as e:
                 logger.warning(f"⚠ 保存到POC库失败：{str(e)}")
 
-            yield f"data: {json.dumps({'type': 'status', 'step': 3, 'message': '✅ 第3步完成：最终POC已生成并保存到库'}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'type': 'status', 'step': 1, 'message': '✅ POC已生成并保存到库'}, ensure_ascii=False)}\n\n"
             await asyncio.sleep(0.1)
 
             logger.info("="*80)
-            logger.info("POC生成和验证流程完成")
+            logger.info("POC生成流程完成")
             logger.info("="*80)
 
             # 发送最终结果
-            result = PocResponse(
+            poc_response = PocResponse(
                 success=True,
-                vulnerability_type=final_result.get("vulnerability_type"),
-                original_vulnerability_info=final_result.get("original_vulnerability_info"),
-                poc_code=final_result.get("poc_code"),
-                explanation=final_result.get("explanation"),
+                vulnerability_type=result.get("vulnerability_type"),
+                original_vulnerability_info=result.get("original_vulnerability_info"),
+                poc_code=result.get("poc_code"),
+                explanation=result.get("explanation"),
+                verifiable=result.get("verifiable", True),
+                manual_steps=result.get("manual_steps"),
                 error=None,
                 warning=settings.SECURITY_WARNING,
             )
-            yield f"data: {json.dumps({'type': 'result', 'data': result.model_dump()}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'type': 'result', 'data': poc_response.model_dump()}, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
 
         except Exception as e:
@@ -153,57 +117,6 @@ async def generate_poc(request: VulnerabilityRequest):
     )
 
 
-@router.post(
-    "/scan",
-    response_model=ScanResponse,
-    summary="执行漏洞扫描",
-    description="使用已保存的 scan.py 脚本对目标URL进行漏洞验证",
-)
-async def scan_url(request: ScanRequest) -> ScanResponse:
-    """
-    执行漏洞扫描
-
-    - **target_url**: 目标URL（将自动标准化为 http(s)://x.x.x.x:port/ 格式）
-
-    注意：请先通过 /generate-poc 接口生成POC代码，系统会自动保存为 scan.py
-    """
-    try:
-        # 执行扫描
-        scan_result = scanner_service.execute_scan(
-            target_url=request.target_url
-        )
-
-        if not scan_result.get("success"):
-            return ScanResponse(
-                success=False,
-                target_url=request.target_url,
-                vulnerable=False,
-                reason="扫描执行失败",
-                details=None,
-                error=scan_result.get("error", "未知错误")
-            )
-
-        result_data = scan_result.get("result", {})
-        return ScanResponse(
-            success=True,
-            target_url=scan_result.get("target_url"),
-            vulnerable=result_data.get("vulnerable", False),
-            reason=result_data.get("reason", "未提供判断原因"),
-            details=result_data.get("details"),
-            error=None
-        )
-
-    except Exception as e:
-        return ScanResponse(
-            success=False,
-            target_url=request.target_url,
-            vulnerable=False,
-            reason="扫描执行异常",
-            details=None,
-            error=str(e)
-        )
-
-
 @router.get("/health", summary="健康检查")
 async def health_check():
     """API健康检查端点"""
@@ -221,6 +134,7 @@ async def search_pocs(
     vuln_type: str = None,
     poc_type: str = None,
     keyword: str = None,
+    verifiable: bool = None,
     limit: int = 50,
     offset: int = 0
 ):
@@ -228,8 +142,9 @@ async def search_pocs(
     搜索POC库
 
     - **vuln_type**: 漏洞类型过滤（如: sqli, xss, rce）
-    - **poc_type**: POC类型过滤（python/nuclei）
+    - **poc_type**: POC类型过滤（python/nuclei/manual）
     - **keyword**: 关键词搜索
+    - **verifiable**: 是否可验证过滤（true=可验证, false=不可验证, null=全部）
     - **limit**: 返回数量限制
     - **offset**: 偏移量
     """
@@ -238,6 +153,7 @@ async def search_pocs(
             vuln_type=vuln_type,
             poc_type=poc_type,
             keyword=keyword,
+            verifiable=verifiable,
             limit=limit,
             offset=offset
         )
@@ -309,4 +225,47 @@ async def get_vuln_types():
         return {"success": True, "vuln_types": types}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/pocs/{poc_id}/code", summary="获取POC文件内容")
+async def get_poc_code(poc_id: int):
+    """
+    获取指定POC的文件内容
+
+    - **poc_id**: POC记录ID
+
+    返回POC脚本的源代码内容，用于查看或下载
+    """
+    try:
+        # 获取POC记录
+        poc_record = poc_library_service.get_poc_by_id(poc_id)
+        if not poc_record:
+            raise HTTPException(status_code=404, detail="POC不存在")
+
+        # 检查文件路径
+        poc_file_path = poc_record.get('poc_file_path')
+        if not poc_file_path:
+            raise HTTPException(status_code=404, detail="POC文件路径不存在")
+
+        # 转换为Path对象并检查文件是否存在
+        file_path = Path(poc_file_path)
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail=f"POC文件不存在: {poc_file_path}")
+
+        # 读取文件内容
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                code = f.read()
+        except UnicodeDecodeError:
+            # 如果UTF-8解码失败，尝试使用其他编码
+            with open(file_path, 'r', encoding='gbk') as f:
+                code = f.read()
+
+        return {"success": True, "code": code}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"读取POC文件失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"读取POC文件失败: {str(e)}")
 
