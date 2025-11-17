@@ -3,7 +3,10 @@ API路由定义
 """
 from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import StreamingResponse
-from models.schemas import VulnerabilityRequest, PocResponse, ScanRequest
+from models.schemas import (
+    VulnerabilityRequest, PocResponse, ScanRequest,
+    LLMConfigRequest, LLMConfigResponse
+)
 from services.llm_service import llm_service
 from services.poc_library_service import poc_library_service
 from config import settings
@@ -29,7 +32,6 @@ async def generate_poc(request: VulnerabilityRequest):
     1. 使用 GLM-4.6 生成POC，保存到 POC库
 
     - **vulnerability_info**: 漏洞信息，可以是描述、CVE编号、HTTP数据包等
-    - **target_info**: 目标系统信息（可选）
     """
 
     async def generate_stream():
@@ -115,16 +117,6 @@ async def generate_poc(request: VulnerabilityRequest):
             "X-Accel-Buffering": "no"
         }
     )
-
-
-@router.get("/health", summary="健康检查")
-async def health_check():
-    """API健康检查端点"""
-    return {
-        "status": "healthy",
-        "service": "Vulnerability to POC Generator",
-        "version": "1.0.0",
-    }
 
 
 # ==================== POC库管理API ====================
@@ -268,4 +260,73 @@ async def get_poc_code(poc_id: int):
     except Exception as e:
         logger.error(f"读取POC文件失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"读取POC文件失败: {str(e)}")
+
+
+
+# ==================== LLM配置管理API ====================
+
+@router.post("/config/llm", summary="更新LLM配置", response_model=LLMConfigResponse)
+async def update_llm_config(config: LLMConfigRequest):
+    """
+    更新大模型API配置
+    
+    - **api_key**: API密钥
+    - **model_id**: 模型ID（如: gpt-4, claude-3-sonnet）
+    - **base_url**: API基础URL
+    - **temperature**: 温度参数（可选）
+    - **max_tokens**: 最大token数（可选）
+    """
+    try:
+        logger.info("收到LLM配置更新请求")
+        logger.info(f"模型ID: {config.model_id}")
+        logger.info(f"Base URL: {config.base_url}")
+        
+        # 更新LLM服务配置
+        llm_service.update_config(
+            api_key=config.api_key,
+            model_id=config.model_id,
+            base_url=config.base_url,
+            temperature=config.temperature,
+            max_tokens=config.max_tokens
+        )
+        
+        # 获取当前配置（隐藏敏感信息）
+        current_config = llm_service.get_current_config()
+        
+        logger.info("✅ LLM配置更新成功")
+        
+        return LLMConfigResponse(
+            success=True,
+            message="LLM配置已更新，新配置将在下次生成POC时生效",
+            current_config=current_config
+        )
+        
+    except Exception as e:
+        logger.error(f"更新LLM配置失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"更新LLM配置失败: {str(e)}"
+        )
+
+
+@router.get("/config/llm", summary="获取当前LLM配置")
+async def get_llm_config():
+    """
+    获取当前大模型API配置（隐藏敏感信息）
+    
+    返回当前使用的模型ID、Base URL等配置信息
+    """
+    try:
+        current_config = llm_service.get_current_config()
+        
+        return {
+            "success": True,
+            "config": current_config
+        }
+    except Exception as e:
+        logger.error(f"获取LLM配置失败: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"获取LLM配置失败: {str(e)}"
+        )
 

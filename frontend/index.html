@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web漏洞POC生成器 - AI驱动的安全测试工具</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=5.1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -62,40 +62,60 @@
                                 placeholder="请输入漏洞信息，例如：&#10;&#10;1. 漏洞描述：&#10;   目标网站 http://example.com/login 存在SQL注入漏洞，位于登录页面的username参数，使用单引号可以触发数据库错误&#10;&#10;2. CVE编号：&#10;   CVE-2017-5638: Apache Struts2远程代码执行漏洞&#10;&#10;3. HTTP数据包：&#10;   POST /login HTTP/1.1&#10;   Host: example.com&#10;   Content-Type: application/x-www-form-urlencoded&#10;   &#10;   username=admin'&password=123456"></textarea>
                         </div>
 
-                        <div class="form-group">
-                            <label for="target-info" class="form-label">
-                                <i class="fas fa-server"></i>
-                                目标信息（可选）
-                            </label>
-                            <input
-                                type="text"
-                                id="target-info"
-                                class="form-input"
-                                placeholder="例如：MySQL 5.7 - PHP 7.4 - Apache 2.4">
-                        </div>
-
-                        <div class="quick-examples">
+                        <!-- API设置区域 -->
+                        <div class="api-settings">
                             <label class="form-label">
-                                <i class="fas fa-lightbulb"></i>
-                                快速示例
+                                <i class="fas fa-cog"></i>
+                                大模型API设置
                             </label>
-                            <div class="example-buttons">
-                                <button class="btn-example" data-example="sql">
-                                    <i class="fas fa-database"></i>
-                                    SQL注入
+
+                            <div class="api-settings-grid">
+                                <div class="form-group-inline">
+                                    <label for="api-key" class="form-label-small">
+                                        <i class="fas fa-key"></i>
+                                        API Key
+                                    </label>
+                                    <input
+                                        type="password"
+                                        id="api-key"
+                                        class="form-input-small"
+                                        placeholder="输入API密钥">
+                                </div>
+
+                                <div class="form-group-inline">
+                                    <label for="model-id" class="form-label-small">
+                                        <i class="fas fa-robot"></i>
+                                        模型ID
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="model-id"
+                                        class="form-input-small"
+                                        placeholder="例如: gpt-4, claude-3">
+                                </div>
+
+                                <div class="form-group-inline">
+                                    <label for="base-url" class="form-label-small">
+                                        <i class="fas fa-link"></i>
+                                        Base URL
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="base-url"
+                                        class="form-input-small"
+                                        placeholder="例如: https://api.openai.com/v1">
+                                </div>
+                            </div>
+
+                            <div class="api-settings-actions">
+                                <button id="save-api-btn" class="btn-api-save">
+                                    <i class="fas fa-save"></i>
+                                    保存设置
                                 </button>
-                                <button class="btn-example" data-example="xss">
-                                    <i class="fas fa-code"></i>
-                                    XSS跨站
-                                </button>
-                                <button class="btn-example" data-example="upload">
-                                    <i class="fas fa-upload"></i>
-                                    文件上传
-                                </button>
-                                <button class="btn-example" data-example="ssrf">
-                                    <i class="fas fa-network-wired"></i>
-                                    SSRF
-                                </button>
+                                <div id="current-model-info" class="current-model-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    <span>当前模型: <strong id="current-model-name">未设置</strong></span>
+                                </div>
                             </div>
                         </div>
 
@@ -110,7 +130,7 @@
                     <div class="output-section">
                         <h2 class="section-title">
                             <i class="fas fa-code"></i>
-                            生成结果
+                            生成过程
                         </h2>
 
                         <!-- 加载状态 -->
@@ -141,7 +161,6 @@
                             <div class="empty-icon">
                                 <i class="fas fa-file-code"></i>
                             </div>
-                            <p class="empty-text">输入漏洞信息后，POC代码将显示在这里</p>
                         </div>
 
                         <!-- 结果内容 -->
@@ -375,6 +394,6 @@
         <span id="toast-message">操作成功</span>
     </div>
 
-    <script src="js/app.js"></script>
+    <script src="js/app.js?v=5.1"></script>
 </body>
 </html>

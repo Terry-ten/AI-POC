@@ -8,13 +8,12 @@ from typing import Optional, Dict, Any
 class VulnerabilityRequest(BaseModel):
     """漏洞信息请求模型"""
     vulnerability_info: str = Field(..., description="漏洞信息，可以是描述、CVE编号、HTTP数据包等")
-    target_info: Optional[str] = Field(None, description="目标系统信息（可选）")
+    target_info: Optional[str] = Field(None, description="目标系统信息（可选，已废弃）")
 
     class Config:
         json_schema_extra = {
             "example": {
-                "vulnerability_info": "目标网站存在SQL注入漏洞，位于登录页面的username参数",
-                "target_info": "Web应用 - MySQL数据库 - http://example.com/login"
+                "vulnerability_info": "目标网站存在SQL注入漏洞，位于登录页面的username参数"
             }
         }
 
@@ -77,5 +76,46 @@ class ScanResponse(BaseModel):
                 "reason": "检测到SQL错误回显",
                 "details": "在username参数注入单引号后，响应返回了MySQL错误信息",
                 "error": None
+            }
+        }
+
+
+class LLMConfigRequest(BaseModel):
+    """LLM配置更新请求模型"""
+    api_key: str = Field(..., description="LLM API密钥")
+    model_id: str = Field(..., description="模型ID，例如: gpt-4, claude-3-sonnet")
+    base_url: str = Field(..., description="API基础URL，例如: https://api.openai.com/v1")
+    temperature: Optional[float] = Field(0.7, description="温度参数（0-2），控制随机性")
+    max_tokens: Optional[int] = Field(None, description="最大token数")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "api_key": "sk-xxxxxxxxxxxxx",
+                "model_id": "gpt-4",
+                "base_url": "https://api.openai.com/v1",
+                "temperature": 0.7,
+                "max_tokens": 4096
+            }
+        }
+
+
+class LLMConfigResponse(BaseModel):
+    """LLM配置响应模型"""
+    success: bool = Field(..., description="是否成功")
+    message: str = Field(..., description="响应消息")
+    current_config: Dict[str, Any] = Field(..., description="当前配置（隐藏敏感信息）")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "message": "LLM配置已更新",
+                "current_config": {
+                    "model_id": "gpt-4",
+                    "base_url": "https://api.openai.com/v1",
+                    "temperature": 0.7,
+                    "api_key_preview": "sk-***...***xxx"
+                }
             }
         }

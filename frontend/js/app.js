@@ -5,68 +5,7 @@
 const API_BASE_URL = 'http://127.0.0.1:8000';
 const API_ENDPOINT = `${API_BASE_URL}/api/generate-poc`;
 const POC_LIBRARY_ENDPOINT = `${API_BASE_URL}/api/pocs`;
-
-// 示例数据
-const EXAMPLES = {
-    sql: {
-        vulnerability_info: `目标网站 http://example.com/login 存在SQL注入漏洞
-
-漏洞位置: 登录页面的username参数
-触发方式: 使用单引号(')可以触发数据库错误
-数据库类型: MySQL
-
-HTTP请求示例:
-POST /login HTTP/1.1
-Host: example.com
-Content-Type: application/x-www-form-urlencoded
-
-username=admin'&password=123456
-
-响应: You have an error in your SQL syntax`,
-        target_info: 'MySQL 5.7 - PHP 7.4 - Apache 2.4'
-    },
-    xss: {
-        vulnerability_info: `目标网站存在反射型XSS漏洞
-
-URL: http://example.com/search
-参数: q (搜索关键词)
-触发: 输入<script>alert(1)</script>会直接执行
-
-测试payload:
-http://example.com/search?q=<script>alert(document.cookie)</script>
-
-响应: 搜索结果页面直接渲染了脚本代码`,
-        target_info: 'Web应用 - 无输入过滤'
-    },
-    upload: {
-        vulnerability_info: `文件上传漏洞 - 可上传PHP后门
-
-URL: http://example.com/upload
-方式: POST multipart/form-data
-限制: 仅检查文件扩展名，未检查文件内容
-
-绕过方式:
-1. 修改扩展名为 .php5, .phtml
-2. 双写扩展名 .php.jpg
-3. 大小写绕过 .PhP
-
-上传成功后文件路径: /uploads/filename.php`,
-        target_info: 'PHP 7.x - Apache - Linux'
-    },
-    ssrf: {
-        vulnerability_info: `服务端请求伪造(SSRF)漏洞
-
-URL: http://example.com/api/fetch
-参数: url
-功能: 服务器会请求用户提供的URL并返回内容
-
-漏洞验证:
-GET /api/fetch?url=http://127.0.0.1:8080/admin
-
-可以访问内网服务，读取本地文件等`,
-        target_info: 'Python Flask - 内网IP段: 192.168.1.0/24'
-    }
-};
+const API_CONFIG_ENDPOINT = `${API_BASE_URL}/api/config`;
 
 // ========================================
 // DOM元素引用
@@ -75,9 +14,14 @@ GET /api/fetch?url=http://127.0.0.1:8080/admin
 const elements = {
     // 输入元素
     vulnerabilityInfo: document.getElementById('vulnerability-info'),
-    targetInfo: document.getElementById('target-info'),
     generateBtn: document.getElementById('generate-btn'),
-    exampleButtons: document.querySelectorAll('.btn-example'),
+
+    // API设置元素
+    apiKey: document.getElementById('api-key'),
+    modelId: document.getElementById('model-id'),
+    baseUrl: document.getElementById('base-url'),
+    saveApiBtn: document.getElementById('save-api-btn'),
+    currentModelName: document.getElementById('current-model-name'),
 
     // 输出元素
     loadingState: document.getElementById('loading-state'),
@@ -344,12 +288,154 @@ async function copyToClipboard() {
  */
 function newPOC() {
     elements.vulnerabilityInfo.value = '';
-    elements.targetInfo.value = '';
     elements.resultContent.style.display = 'none';
     elements.emptyState.style.display = 'block';
 
     elements.vulnerabilityInfo.focus();
     showToast('已重置，可以输入新的漏洞信息', 'success');
+}
+
+// ========================================
+// API设置管理
+// ========================================
+
+/**
+ * 保存API设置到后端服务器
+ */
+async function saveAPISettings() {
+    const apiKey = elements.apiKey.value.trim();
+    const modelId = elements.modelId.value.trim();
+    const baseUrl = elements.baseUrl.value.trim();
+
+    // 验证输入
+    if (!apiKey || !modelId || !baseUrl) {
+        showToast('请填写完整的API设置', 'warning');
+        return;
+    }
+
+    // 禁用保存按钮，显示加载状态
+    const saveBtn = elements.saveApiBtn;
+    const originalHTML = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 保存中...';
+
+    try {
+        // 调用后端API更新配置
+        const response = await fetch(`${API_BASE_URL}/api/config/llm`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                api_key: apiKey,
+                model_id: modelId,
+                base_url: baseUrl,
+                temperature: 0.7,
+                max_tokens: null
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            // 同时保存到LocalStorage作为备份
+            const apiConfig = {
+                apiKey: apiKey,
+                modelId: modelId,
+                baseUrl: baseUrl,
+                updateTime: new Date().toISOString()
+            };
+            localStorage.setItem('llm_api_config', JSON.stringify(apiConfig));
+
+            // 更新显示
+            updateCurrentModelDisplay(modelId);
+
+            showToast('✅ ' + data.message, 'success');
+
+            console.log('✅ API配置已更新:', data.current_config);
+        } else {
+            showToast('保存失败: ' + (data.message || '未知错误'), 'error');
+        }
+    } catch (error) {
+        console.error('保存API设置失败:', error);
+        showToast('❌ 保存失败，请检查网络连接', 'error');
+    } finally {
+        // 恢复按钮状态
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalHTML;
+    }
+}
+
+/**
+ * 从后端加载当前API设置
+ */
+async function loadAPISettings() {
+    try {
+        // 先从后端获取当前配置
+        const response = await fetch(`${API_BASE_URL}/api/config/llm`);
+        const data = await response.json();
+
+        if (data.success && data.config) {
+            const config = data.config;
+
+            // 更新当前模型显示
+            updateCurrentModelDisplay(config.model_id);
+
+            console.log('✅ 已加载后端API配置:', config);
+
+            // 尝试从LocalStorage加载以填充表单
+            const savedConfig = localStorage.getItem('llm_api_config');
+            if (savedConfig) {
+                const localConfig = JSON.parse(savedConfig);
+                if (elements.apiKey) elements.apiKey.value = localConfig.apiKey || '';
+                if (elements.modelId) elements.modelId.value = localConfig.modelId || config.model_id;
+                if (elements.baseUrl) elements.baseUrl.value = localConfig.baseUrl || config.base_url;
+            } else {
+                // 如果LocalStorage没有，使用后端返回的值（但不显示API Key）
+                if (elements.modelId) elements.modelId.value = config.model_id || '';
+                if (elements.baseUrl) elements.baseUrl.value = config.base_url || '';
+            }
+        } else {
+            // 后端无配置，尝试从LocalStorage加载
+            const savedConfig = localStorage.getItem('llm_api_config');
+            if (savedConfig) {
+                const config = JSON.parse(savedConfig);
+                if (elements.apiKey) elements.apiKey.value = config.apiKey || '';
+                if (elements.modelId) elements.modelId.value = config.modelId || '';
+                if (elements.baseUrl) elements.baseUrl.value = config.baseUrl || '';
+                updateCurrentModelDisplay(config.modelId);
+            } else {
+                updateCurrentModelDisplay('未设置');
+            }
+        }
+    } catch (error) {
+        console.error('加载API设置失败:', error);
+
+        // 后端请求失败，尝试从LocalStorage加载
+        try {
+            const savedConfig = localStorage.getItem('llm_api_config');
+            if (savedConfig) {
+                const config = JSON.parse(savedConfig);
+                if (elements.apiKey) elements.apiKey.value = config.apiKey || '';
+                if (elements.modelId) elements.modelId.value = config.modelId || '';
+                if (elements.baseUrl) elements.baseUrl.value = config.baseUrl || '';
+                updateCurrentModelDisplay(config.modelId + ' (本地)');
+            } else {
+                updateCurrentModelDisplay('加载失败');
+            }
+        } catch (e) {
+            updateCurrentModelDisplay('加载失败');
+        }
+    }
+}
+
+/**
+ * 更新当前模型显示
+ */
+function updateCurrentModelDisplay(modelName) {
+    if (elements.currentModelName) {
+        elements.currentModelName.textContent = modelName || '未设置';
+    }
 }
 
 // ========================================
@@ -361,7 +447,6 @@ function newPOC() {
  */
 async function generatePOC() {
     const vulnerabilityInfo = elements.vulnerabilityInfo.value.trim();
-    const targetInfo = elements.targetInfo.value.trim();
 
     // 验证输入
     if (!vulnerabilityInfo) {
@@ -381,8 +466,7 @@ async function generatePOC() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                vulnerability_info: vulnerabilityInfo,
-                target_info: targetInfo || null
+                vulnerability_info: vulnerabilityInfo
             })
         });
 
@@ -1394,25 +1478,8 @@ function initializeEventListeners() {
         }
     });
 
-    // 示例按钮点击事件
-    elements.exampleButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            const exampleType = button.getAttribute('data-example');
-            const example = EXAMPLES[exampleType];
-
-            if (example) {
-                elements.vulnerabilityInfo.value = example.vulnerability_info;
-                elements.targetInfo.value = example.target_info;
-                showToast(`已加载${button.textContent.trim()}示例`, 'success');
-
-                // 添加视觉反馈
-                button.style.transform = 'scale(0.95)';
-                setTimeout(() => {
-                    button.style.transform = '';
-                }, 150);
-            }
-        });
-    });
+    // API设置按钮点击事件
+    elements.saveApiBtn.addEventListener('click', saveAPISettings);
 
     // 复制按钮
     elements.copyBtn.addEventListener('click', copyToClipboard);
@@ -1519,16 +1586,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 初始化事件监听
     initializeEventListeners();
 
-    // 检查API健康状态
-    fetch(`${API_BASE_URL}/api/health`)
-        .then(response => response.json())
-        .then(data => {
-            console.log('✅ API状态:', data);
-        })
-        .catch(error => {
-            console.error('❌ API连接失败:', error);
-            showToast('无法连接到后端API，请确保服务已启动', 'error');
-        });
+    // 加载API设置
+    loadAPISettings();
 });
 
 // ========================================
@@ -1563,8 +1622,7 @@ window.pocGenerator = {
     showToast,
     downloadPOC,
     copyToClipboard,
-    newPOC,
-    EXAMPLES
+    newPOC
 };
 
 console.log('💡 提示: 可以通过 window.pocGenerator 访问API函数');

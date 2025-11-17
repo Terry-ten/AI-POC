@@ -89,7 +89,6 @@ async def root():
             "description": "根据Web漏洞信息生成POC验证代码",
             "warning": settings.SECURITY_WARNING,
             "docs": "/docs",
-            "health": "/api/health",
         }
 
 
