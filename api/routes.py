@@ -22,14 +22,14 @@ logger = logging.getLogger(__name__)
 @router.post(
     "/generate-poc",
     summary="生成Web漏洞POC代码",
-    description="使用GLM-4.6生成POC代码（支持实时进度反馈）",
+    description="使用大模型生成POC代码（支持实时进度反馈）",
 )
 async def generate_poc(request: VulnerabilityRequest):
     """
     接收Web漏洞信息，生成POC代码（流式响应）
 
     流程：
-    1. 使用 GLM-4.6 生成POC，保存到 POC库
+    1. 使用大模型生成POC，保存到 POC库
 
     - **vulnerability_info**: 漏洞信息，可以是描述、CVE编号、HTTP数据包等
     """
@@ -44,9 +44,12 @@ async def generate_poc(request: VulnerabilityRequest):
             yield f"data: {json.dumps({'type': 'status', 'step': 0, 'message': '开始生成流程...'}, ensure_ascii=False)}\n\n"
             await asyncio.sleep(0.1)
 
-            # 使用 GLM-4.6 生成POC
-            yield f"data: {json.dumps({'type': 'status', 'step': 1, 'message': '正在使用 GLM-4.6 生成POC代码...'}, ensure_ascii=False)}\n\n"
-            logger.info("使用 GLM-4.6 生成POC...")
+            # 获取当前配置的模型名称
+            current_model = llm_service.model
+
+            # 使用大模型生成POC
+            yield f"data: {json.dumps({'type': 'status', 'step': 1, 'message': f'正在使用 {current_model} 生成POC代码...'}, ensure_ascii=False)}\n\n"
+            logger.info(f"使用 {current_model} 生成POC...")
 
             result = await llm_service.generate_initial_poc(
                 vulnerability_info=request.vulnerability_info,
@@ -59,7 +62,7 @@ async def generate_poc(request: VulnerabilityRequest):
             try:
                 poc_id = poc_library_service.save_poc(
                     vuln_type=result.get("vulnerability_type") or "unknown",
-                    vuln_info=result.get("original_vulnerability_info") or request.vulnerability_info,
+                    vuln_info=request.vulnerability_info,  # 原封不动使用用户输入的描述
                     poc_code=result.get("poc_code"),
                     explanation=result.get("explanation") or "",
                     poc_type="python" if verifiable else "manual",
@@ -297,7 +300,7 @@ async def update_llm_config(config: LLMConfigRequest):
         
         return LLMConfigResponse(
             success=True,
-            message="LLM配置已更新，新配置将在下次生成POC时生效",
+            message="LLM配置已更新并立即生效，配置已永久保存",
             current_config=current_config
         )
         

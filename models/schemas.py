@@ -58,28 +58,6 @@ class ScanRequest(BaseModel):
         }
 
 
-class ScanResponse(BaseModel):
-    """扫描结果响应模型"""
-    success: bool = Field(..., description="扫描是否成功执行")
-    target_url: str = Field(..., description="标准化后的目标URL")
-    vulnerable: bool = Field(..., description="是否存在漏洞")
-    reason: str = Field(..., description="判断依据")
-    details: Optional[str] = Field(None, description="详细信息")
-    error: Optional[str] = Field(None, description="错误信息")
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "success": True,
-                "target_url": "http://example.com:80/",
-                "vulnerable": True,
-                "reason": "检测到SQL错误回显",
-                "details": "在username参数注入单引号后，响应返回了MySQL错误信息",
-                "error": None
-            }
-        }
-
-
 class LLMConfigRequest(BaseModel):
     """LLM配置更新请求模型"""
     api_key: str = Field(..., description="LLM API密钥")

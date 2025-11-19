@@ -7,6 +7,9 @@ const API_ENDPOINT = `${API_BASE_URL}/api/generate-poc`;
 const POC_LIBRARY_ENDPOINT = `${API_BASE_URL}/api/pocs`;
 const API_CONFIG_ENDPOINT = `${API_BASE_URL}/api/config`;
 
+// 暴露API_BASE_URL到全局
+window.API_BASE_URL = API_BASE_URL;
+
 // ========================================
 // DOM元素引用
 // ========================================
@@ -543,11 +546,12 @@ async function generatePOC() {
 }
 
 // ========================================
-// POC库管理功能
+// POC库管理功能 - 即将重新实现
 // ========================================
 
-// 全局变量 - 当前查看的POC
+// 全局变量
 let currentPOC = null;
+let pocListData = []; // POC列表数据缓存
 
 /**
  * 标签页切换
@@ -574,9 +578,10 @@ function switchTab(tabName) {
         generatorSection.style.display = 'none';
         librarySection.style.display = 'block';
 
-        // 加载POC库数据
-        loadPOCLibrary();
-        loadStatistics();
+        // 加载POC库数据 - 使用新的库管理系统
+        if (typeof initLibrary === 'function') {
+            initLibrary();
+        }
     }
 }
 

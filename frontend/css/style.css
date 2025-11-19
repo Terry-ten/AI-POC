@@ -1502,19 +1502,21 @@ body {
 /* POC列表 */
 .poc-list {
     display: grid;
-    gap: 1rem;
+    gap: 1.5rem;
 }
 
-/* 新版POC卡片 */
+/* ==================== POC卡片 - 全新设计 ==================== */
+/* 使用table-like布局确保按钮永远在右侧 */
 .poc-card-new {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 1rem;
-    overflow: hidden;
     transition: all 0.3s ease;
-    display: flex;
-    justify-content: space-between;
-    align-items: stretch;
+
+    /* 使用table布局 - 最可靠的方式 */
+    display: table;
+    width: 100%;
+    table-layout: fixed;
 }
 
 .poc-card-new:hover {
@@ -1522,63 +1524,86 @@ body {
     box-shadow: 0 4px 16px rgba(139, 92, 246, 0.15);
 }
 
+/* 左侧内容 - table cell */
 .poc-card-left {
-    flex: 1;
+    display: table-cell;
+    width: 100%;  /* 自动填充 */
     padding: 1.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
+    vertical-align: top;
 }
 
+/* 右侧按钮 - table cell */
+.poc-card-actions {
+    display: table-cell;
+    width: 140px;  /* 固定宽度 */
+    padding: 1rem;
+    vertical-align: middle;
+    background: var(--bg-tertiary);
+    border-left: 1px solid var(--border-color);
+}
+
+/* POC信息区域 */
 .poc-card-info {
     cursor: pointer;
-    flex: 1;
+    margin-bottom: 1rem;
 }
 
+/* POC头部 */
 .poc-header-new {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 0.75rem;
     gap: 1rem;
+    margin-bottom: 0.75rem;
 }
 
+/* POC名称 */
+.poc-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+/* 标签组 */
 .poc-badges {
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
+    flex-shrink: 0;
 }
 
-/* POC卡片文字样式 */
-.poc-name {
-    font-size: 1.125rem;
-    font-weight: 600;
-    color: var(--text-primary) !important;
-    margin-bottom: 0.5rem;
-}
-
+/* POC描述 */
 .poc-description {
     font-size: 0.875rem;
-    color: var(--text-secondary) !important;
+    color: var(--text-secondary);
     line-height: 1.6;
     margin-bottom: 0.75rem;
+    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
+/* POC元信息 */
 .poc-meta {
     display: flex;
+    flex-wrap: wrap;
     gap: 1rem;
     font-size: 0.813rem;
-    color: var(--text-muted) !important;
+    color: var(--text-muted);
 }
 
-.poc-meta-item {
+.poc-meta span {
     display: flex;
     align-items: center;
     gap: 0.25rem;
 }
 
-.poc-meta-item i {
-    color: var(--primary-light) !important;
+.poc-meta i {
+    color: var(--primary-light);
 }
 
 /* POC执行区域 */
@@ -1586,11 +1611,13 @@ body {
     display: flex;
     gap: 0.75rem;
     padding-top: 1rem;
+    margin-top: 1rem;
     border-top: 1px solid var(--border-color);
 }
 
 .poc-url-input {
     flex: 1;
+    min-width: 0;
     padding: 0.75rem 1rem;
     background: var(--bg-primary);
     border: 2px solid var(--border-color);
@@ -1627,11 +1654,12 @@ body {
 }
 
 .btn-execute:hover {
+    transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
 }
 
 .btn-execute:active {
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+    transform: translateY(0);
 }
 
 .btn-execute:disabled {
@@ -1639,18 +1667,11 @@ body {
     cursor: not-allowed;
 }
 
-/* 右侧操作按钮 */
-.poc-card-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 1rem;
-    background: var(--bg-tertiary);
-    border-left: 1px solid var(--border-color);
-}
-
+/* 右侧操作按钮组 */
 .btn-action {
-    padding: 0.75rem 1rem;
+    width: 100%;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 0.5rem;
@@ -1666,17 +1687,26 @@ body {
     white-space: nowrap;
 }
 
+.btn-action:last-child {
+    margin-bottom: 0;
+}
+
 .btn-action:hover {
     background: var(--primary-color);
     border-color: var(--primary-color);
     color: white;
+    transform: translateX(-2px);
+}
+
+.btn-action:active {
+    transform: translateX(0);
 }
 
 .btn-action i {
     font-size: 1rem;
 }
 
-/* 删除按钮危险样式 */
+/* 删除按钮 */
 .btn-action-danger {
     border-color: rgba(239, 68, 68, 0.3);
 }
@@ -1993,6 +2023,11 @@ body {
     border-radius: 0.75rem;
     color: var(--text-muted);
     line-height: 1.6;
+    word-break: break-all;  /* 强制在任何位置断行，包括URL */
+    overflow-wrap: anywhere;  /* 现代浏览器最强的换行 */
+    white-space: pre-wrap;  /* 保留换行符，并自动换行 */
+    max-width: 100%;  /* 限制最大宽度 */
+    overflow-x: hidden;  /* 隐藏横向溢出，强制换行 */
 }
 
 .execute-form {

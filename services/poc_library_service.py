@@ -445,7 +445,7 @@ class PocLibraryService:
             url: 原始URL
 
         Returns:
-            str: 标准化后的URL（http(s)://host:port/）
+            str: 标准化后的URL（http(s)://host/或http(s)://host:port/）
         """
         # 如果没有协议，默认添加http://
         if not url.startswith(('http://', 'https://')):
@@ -456,12 +456,7 @@ class PocLibraryService:
         scheme = parsed.scheme
         netloc = parsed.netloc
 
-        # 如果没有指定端口，使用默认端口
-        if ':' not in netloc:
-            if scheme == 'https':
-                netloc = f"{netloc}:443"
-            else:
-                netloc = f"{netloc}:80"
+        # 保持原始URL的端口设置，不自动添加默认端口
 
         # 构建标准化URL（确保以/结尾）
         normalized_url = f"{scheme}://{netloc}/"

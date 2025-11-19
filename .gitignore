@@ -55,6 +55,15 @@ htmlcov/
 temp/
 nul
 
+# 截图和临时图片
+img*.png
+screenshot*.png
+temp*.png
+
+# 一次性使用的脚本
+sync_*.py
+migrate_*.py
+
 # Claude本地设置
 .claude/settings.local.json
 

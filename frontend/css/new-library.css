@@ -1,0 +1,689 @@
+/* ========================================
+   全新POC库管理页面样式
+   ======================================== */
+
+/* 库页面头部 */
+.library-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.library-title-section {
+    flex: 1;
+}
+
+.library-title {
+    font-size: 2.25rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.library-title i {
+    color: var(--primary-color);
+    font-size: 2rem;
+}
+
+.library-subtitle {
+    font-size: 1rem;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.library-header-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.btn-header-action {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    color: var(--text-primary);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-header-action:hover {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+/* 统计概览卡片 */
+.stats-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card-modern {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card-modern::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.stat-card-modern:hover::before {
+    opacity: 1;
+}
+
+.stat-card-modern:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2);
+}
+
+.stat-card-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+    flex-shrink: 0;
+}
+
+.stat-card-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.stat-card-label {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+}
+
+.stat-card-number {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+/* 筛选和搜索栏 */
+.library-filters {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.filter-tabs-container {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.filter-tabs {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.filter-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1.5rem;
+    background: var(--bg-primary);
+    border: 2px solid var(--border-color);
+    border-radius: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.filter-tab i {
+    font-size: 1.125rem;
+}
+
+.filter-tab .tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 0.5rem;
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.filter-tab:hover {
+    border-color: var(--primary-color);
+    background: rgba(99, 102, 241, 0.05);
+    color: var(--primary-color);
+}
+
+.filter-tab.active {
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    border-color: transparent;
+    color: white;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.filter-tab.active .tab-count {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.filter-controls {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.search-container {
+    flex: 1;
+    min-width: 250px;
+    position: relative;
+}
+
+.search-icon {
+    position: absolute;
+    left: 1.25rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 1.125rem;
+    pointer-events: none;
+}
+
+.search-input-modern {
+    width: 100%;
+    padding: 1rem 1.25rem 1rem 3.25rem;
+    background: var(--bg-primary);
+    border: 2px solid var(--border-color);
+    border-radius: 0.75rem;
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+    transition: all 0.3s ease;
+}
+
+.search-input-modern:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+.search-input-modern::placeholder {
+    color: var(--text-muted);
+}
+
+.filter-selects {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.filter-select-modern {
+    padding: 1rem 1.25rem;
+    background: var(--bg-primary);
+    border: 2px solid var(--border-color);
+    border-radius: 0.75rem;
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 180px;
+}
+
+.filter-select-modern:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+/* POC列表包装器 */
+.poc-list-wrapper {
+    min-height: 400px;
+}
+
+/* 加载状态 */
+.library-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+}
+
+.loading-spinner-modern {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    margin-bottom: 2rem;
+}
+
+.spinner-ring {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border: 4px solid transparent;
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+}
+
+.spinner-ring:nth-child(2) {
+    border-top-color: var(--secondary-color);
+    animation-delay: -0.5s;
+    width: 70%;
+    height: 70%;
+    top: 15%;
+    left: 15%;
+}
+
+.spinner-ring:nth-child(3) {
+    border-top-color: var(--accent-color);
+    animation-delay: -1s;
+    width: 40%;
+    height: 40%;
+    top: 30%;
+    left: 30%;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-text-modern {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* 空状态 */
+.library-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 4rem 2rem;
+    text-align: center;
+}
+
+.empty-illustration {
+    margin-bottom: 2rem;
+}
+
+.empty-illustration i {
+    font-size: 6rem;
+    color: var(--text-muted);
+    opacity: 0.3;
+}
+
+.empty-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 0.75rem 0;
+}
+
+.empty-description {
+    font-size: 1rem;
+    color: var(--text-muted);
+    margin: 0 0 2rem 0;
+    max-width: 400px;
+}
+
+.btn-empty-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 2rem;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    border: none;
+    border-radius: 0.75rem;
+    color: white;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.btn-empty-action:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
+
+/* POC网格 */
+.poc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+}
+
+/* POC卡片 - 全新设计 */
+.poc-card-v2 {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.poc-card-v2::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.poc-card-v2:hover::before {
+    opacity: 1;
+}
+
+.poc-card-v2:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* POC卡片头部 */
+.poc-card-header-v2 {
+    margin-bottom: 1rem;
+}
+
+.poc-card-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 0.75rem 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.poc-card-badges-v2 {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.poc-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.poc-badge.verifiable {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+
+.poc-badge.manual {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+
+.poc-badge.python {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+}
+
+.poc-badge.nuclei {
+    background: rgba(139, 92, 246, 0.15);
+    color: #8b5cf6;
+}
+
+/* POC卡片内容 */
+.poc-card-body-v2 {
+    flex: 1;
+    margin-bottom: 1rem;
+}
+
+.poc-card-description {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.poc-card-meta-v2 {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    font-size: 0.813rem;
+    color: var(--text-muted);
+}
+
+.poc-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.poc-meta-item i {
+    color: var(--primary-light);
+    width: 16px;
+}
+
+/* POC卡片执行区域 */
+.poc-card-execute-v2 {
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.poc-execute-form {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.poc-execute-input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    background: var(--bg-primary);
+    border: 2px solid var(--border-color);
+    border-radius: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    transition: all 0.3s ease;
+}
+
+.poc-execute-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.btn-poc-execute {
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #10b981, #059669);
+    border: none;
+    border-radius: 0.5rem;
+    color: white;
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.btn-poc-execute:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+/* POC卡片底部动作 */
+.poc-card-actions-v2 {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-poc-action {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-poc-action:hover {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.btn-poc-action.danger:hover {
+    background: #ef4444;
+    border-color: #ef4444;
+}
+
+/* 响应式设计 */
+@media (max-width: 1024px) {
+    .poc-grid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .library-header {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .library-title {
+        font-size: 1.75rem;
+    }
+
+    .stats-overview {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+
+    .stat-card-modern {
+        padding: 1rem;
+    }
+
+    .stat-card-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 1.25rem;
+    }
+
+    .stat-card-number {
+        font-size: 1.5rem;
+    }
+
+    .filter-controls {
+        flex-direction: column;
+    }
+
+    .search-container,
+    .filter-select-modern {
+        width: 100%;
+    }
+
+    .poc-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .filter-tabs {
+        flex-direction: column;
+    }
+
+    .filter-tab {
+        width: 100%;
+    }
+}
+
+@media (max-width: 640px) {
+    .library-title {
+        font-size: 1.5rem;
+    }
+
+    .stats-overview {
+        grid-template-columns: 1fr;
+    }
+
+    .poc-card-actions-v2 {
+        flex-direction: column;
+    }
+
+    .btn-poc-action {
+        width: 100%;
+    }
+
+    .poc-execute-form {
+        flex-direction: column;
+    }
+
+    .btn-poc-execute {
+        width: 100%;
+    }
+}

@@ -19,9 +19,6 @@ class Settings:
     # POC生成模型（GLM-4.6）
     LLM_MODEL_GENERATE: str = os.getenv("LLM_MODEL_GENERATE", "zai-org/GLM-4.6")
 
-    # 代码评审模型（DeepSeek-R1）
-    LLM_MODEL_EVALUATE: str = os.getenv("LLM_MODEL_EVALUATE", "deepseek-ai/DeepSeek-R1")
-
     # 通用配置
     LLM_TEMPERATURE: float = 0.7
     LLM_MAX_TOKENS: int = None  # 不限制生成长度

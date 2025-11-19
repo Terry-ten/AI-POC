@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web漏洞POC生成器 - AI驱动的安全测试工具</title>
-    <link rel="stylesheet" href="css/style.css?v=5.1">
+    <link rel="stylesheet" href="css/style.css?v=7.1">
+    <link rel="stylesheet" href="css/new-library.css?v=1.0">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
@@ -225,154 +226,144 @@
             </div>
         </section>
 
-        <!-- POC库管理区域 -->
+        <!-- POC库管理区域 - 全新设计 -->
         <section class="library-section" style="display: none;">
             <div class="container">
-                <!-- 统计卡片 -->
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon">
+                <!-- 顶部标题区域 -->
+                <div class="library-header">
+                    <div class="library-title-section">
+                        <h1 class="library-title">
+                            <i class="fas fa-database"></i>
+                            POC脚本库
+                        </h1>
+                        <p class="library-subtitle">管理和执行所有已生成的POC验证脚本</p>
+                    </div>
+                    <div class="library-header-actions">
+                        <button id="refresh-library-btn" class="btn-header-action">
+                            <i class="fas fa-sync-alt"></i>
+                            刷新
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 统计概览卡片 -->
+                <div class="stats-overview">
+                    <div class="stat-card-modern">
+                        <div class="stat-card-icon" style="background: linear-gradient(135deg, #6366f1, #8b5cf6);">
                             <i class="fas fa-database"></i>
                         </div>
-                        <div class="stat-info">
-                            <div class="stat-label">POC总数</div>
-                            <div id="stat-total" class="stat-value">0</div>
+                        <div class="stat-card-content">
+                            <div class="stat-card-label">总数</div>
+                            <div id="stat-total-modern" class="stat-card-number">0</div>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">
-                            <i class="fas fa-python"></i>
-                        </div>
-                        <div class="stat-info">
-                            <div class="stat-label">Python POC</div>
-                            <div id="stat-python" class="stat-value">0</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">
-                            <i class="fas fa-bolt"></i>
-                        </div>
-                        <div class="stat-info">
-                            <div class="stat-label">Nuclei POC</div>
-                            <div id="stat-nuclei" class="stat-value">0</div>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- 搜索和筛选 -->
-                <div class="library-controls">
-                    <!-- 可验证性选项卡 -->
-                    <div class="verifiable-tabs">
-                        <button class="tab-btn active" data-verifiable="all">
-                            <i class="fas fa-list"></i>
-                            全部POC
-                        </button>
-                        <button class="tab-btn" data-verifiable="true">
+                    <div class="stat-card-modern">
+                        <div class="stat-card-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
                             <i class="fas fa-check-circle"></i>
-                            可验证
-                        </button>
-                        <button class="tab-btn" data-verifiable="false">
+                        </div>
+                        <div class="stat-card-content">
+                            <div class="stat-card-label">可自动验证</div>
+                            <div id="stat-verifiable-modern" class="stat-card-number">0</div>
+                        </div>
+                    </div>
+
+                    <div class="stat-card-modern">
+                        <div class="stat-card-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
                             <i class="fas fa-hand-paper"></i>
-                            需人工验证
-                        </button>
+                        </div>
+                        <div class="stat-card-content">
+                            <div class="stat-card-label">需人工验证</div>
+                            <div id="stat-manual-modern" class="stat-card-number">0</div>
+                        </div>
                     </div>
 
-                    <div class="search-box">
-                        <i class="fas fa-search"></i>
-                        <input type="text" id="search-keyword" placeholder="搜索POC..." class="search-input">
-                    </div>
-                    <div class="filter-group">
-                        <select id="filter-vuln-type" class="filter-select">
-                            <option value="">所有漏洞类型</option>
-                        </select>
-                        <select id="filter-poc-type" class="filter-select">
-                            <option value="">所有POC类型</option>
-                            <option value="python">Python</option>
-                            <option value="nuclei">Nuclei</option>
-                            <option value="manual">人工操作</option>
-                        </select>
-                        <button id="refresh-btn" class="btn-icon" title="刷新">
-                            <i class="fas fa-sync-alt"></i>
-                        </button>
+                    <div class="stat-card-modern">
+                        <div class="stat-card-icon" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+                            <i class="fas fa-bug"></i>
+                        </div>
+                        <div class="stat-card-content">
+                            <div class="stat-card-label">漏洞类型</div>
+                            <div id="stat-types-modern" class="stat-card-number">0</div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- POC列表 -->
-                <div class="poc-list-container">
-                    <div id="poc-list-loading" class="list-loading" style="display: none;">
-                        <div class="spinner"></div>
-                        <p>加载POC列表...</p>
-                    </div>
-
-                    <div id="poc-list-empty" class="list-empty" style="display: none;">
-                        <i class="fas fa-folder-open"></i>
-                        <p>暂无POC记录</p>
-                    </div>
-
-                    <div id="poc-list" class="poc-list">
-                        <!-- POC项目将动态添加 -->
-                    </div>
-                </div>
-
-                <!-- POC详情模态框 -->
-                <div id="poc-detail-modal" class="modal" style="display: none;">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h3>
-                                <i class="fas fa-file-code"></i>
-                                POC详情
-                            </h3>
-                            <button class="modal-close">
-                                <i class="fas fa-times"></i>
+                <!-- 筛选和搜索栏 -->
+                <div class="library-filters">
+                    <div class="filter-tabs-container">
+                        <div class="filter-tabs">
+                            <button class="filter-tab active" data-filter="all">
+                                <i class="fas fa-th"></i>
+                                <span>全部</span>
+                                <span class="tab-count" id="count-all">0</span>
+                            </button>
+                            <button class="filter-tab" data-filter="verifiable">
+                                <i class="fas fa-check-circle"></i>
+                                <span>可验证</span>
+                                <span class="tab-count" id="count-verifiable">0</span>
+                            </button>
+                            <button class="filter-tab" data-filter="manual">
+                                <i class="fas fa-hand-paper"></i>
+                                <span>需人工</span>
+                                <span class="tab-count" id="count-manual">0</span>
                             </button>
                         </div>
-                        <div class="modal-body">
-                            <div class="detail-grid">
-                                <div class="detail-item">
-                                    <span class="detail-label">POC ID:</span>
-                                    <span id="detail-id" class="detail-value">-</span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">漏洞类型:</span>
-                                    <span id="detail-vuln-type" class="detail-value">-</span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">POC类型:</span>
-                                    <span id="detail-poc-type" class="detail-value">-</span>
-                                </div>
-                                <div class="detail-item">
-                                    <span class="detail-label">创建时间:</span>
-                                    <span id="detail-create-time" class="detail-value">-</span>
-                                </div>
-                            </div>
+                    </div>
 
-                            <div class="detail-description">
-                                <div class="detail-section-title">
-                                    <i class="fas fa-info-circle"></i>
-                                    漏洞描述
-                                </div>
-                                <div id="detail-description" class="detail-section-content">
-                                    -
-                                </div>
-                            </div>
-
-                            <div class="detail-execute-section">
-                                <div class="detail-section-title">
-                                    <i class="fas fa-play"></i>
-                                    执行POC
-                                </div>
-                                <div class="execute-form">
-                                    <input type="text" id="execute-target-url" placeholder="输入目标URL..." class="execute-input">
-                                    <button id="execute-poc-btn" class="btn-primary">
-                                        <i class="fas fa-rocket"></i>
-                                        执行
-                                    </button>
-                                </div>
-                                <div id="execute-result" class="execute-result" style="display: none;">
-                                    <!-- 执行结果将显示在这里 -->
-                                </div>
-                            </div>
+                    <div class="filter-controls">
+                        <div class="search-container">
+                            <i class="fas fa-search search-icon"></i>
+                            <input
+                                type="text"
+                                id="lib-search-input"
+                                class="search-input-modern"
+                                placeholder="搜索POC名称、漏洞类型..."
+                            >
                         </div>
+
+                        <div class="filter-selects">
+                            <select id="lib-filter-type" class="filter-select-modern">
+                                <option value="">所有漏洞类型</option>
+                            </select>
+
+                            <select id="lib-sort-by" class="filter-select-modern">
+                                <option value="newest">最新创建</option>
+                                <option value="oldest">最早创建</option>
+                                <option value="name">名称排序</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- POC列表区域 -->
+                <div class="poc-list-wrapper">
+                    <!-- 加载状态 -->
+                    <div id="lib-loading" class="library-loading" style="display: none;">
+                        <div class="loading-spinner-modern">
+                            <div class="spinner-ring"></div>
+                            <div class="spinner-ring"></div>
+                            <div class="spinner-ring"></div>
+                        </div>
+                        <p class="loading-text-modern">加载POC列表...</p>
+                    </div>
+
+                    <!-- 空状态 -->
+                    <div id="lib-empty" class="library-empty" style="display: none;">
+                        <div class="empty-illustration">
+                            <i class="fas fa-folder-open"></i>
+                        </div>
+                        <h3 class="empty-title">暂无POC记录</h3>
+                        <p class="empty-description">生成POC后将自动保存到这里</p>
+                        <button onclick="switchTab('generator')" class="btn-empty-action">
+                            <i class="fas fa-plus"></i>
+                            立即生成POC
+                        </button>
+                    </div>
+
+                    <!-- POC网格列表 -->
+                    <div id="lib-poc-grid" class="poc-grid">
+                        <!-- POC卡片将动态插入这里 -->
                     </div>
                 </div>
             </div>
@@ -394,6 +385,7 @@
         <span id="toast-message">操作成功</span>
     </div>
 
-    <script src="js/app.js?v=5.1"></script>
+    <script src="js/app.js?v=7.0"></script>
+    <script src="js/library.js?v=1.0"></script>
 </body>
 </html>
