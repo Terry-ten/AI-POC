@@ -26,12 +26,11 @@ pocs/
 ### 3. POC执行
 - 支持根据ID执行任意POC
 - 自动路由到对应的执行引擎（Python/Nuclei）
-- 记录执行历史和成功率
+- 记录最后使用时间
 
 ### 4. 统计分析
 - POC总数和类型分布
 - 最近使用的POC
-- 成功率最高的POC
 - 漏洞类型统计
 
 ## API接口
@@ -112,10 +111,11 @@ CREATE TABLE poc_records (
     poc_file_path TEXT NOT NULL,          -- POC文件路径
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_used TIMESTAMP,                  -- 最后使用时间
-    success_count INTEGER DEFAULT 0,      -- 成功次数
-    fail_count INTEGER DEFAULT 0,         -- 失败次数
     tags TEXT,                            -- 标签
-    metadata TEXT                         -- 元数据（JSON）
+    metadata TEXT,                        -- 元数据（JSON）
+    verifiable BOOLEAN DEFAULT 1,         -- 是否可自动化验证
+    manual_steps TEXT,                    -- 人工操作指南（JSON）
+    explanation TEXT                      -- 说明信息
 );
 ```
 
@@ -147,7 +147,7 @@ go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
 ### 核心服务文件
 
 - `services/poc_library_service.py` - POC库管理核心服务
-- `services/nuclei_engine.py` - Nuclei执行引擎
+- `services/nuclei_service.py` - Nuclei扫描与模板服务
 - `api/routes.py` - API路由定义
 
 ### 扩展POC类型

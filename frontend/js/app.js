@@ -6,6 +6,7 @@ const API_BASE_URL = 'http://127.0.0.1:8000';
 const API_ENDPOINT = `${API_BASE_URL}/api/generate-poc`;
 const POC_LIBRARY_ENDPOINT = `${API_BASE_URL}/api/pocs`;
 const API_CONFIG_ENDPOINT = `${API_BASE_URL}/api/config`;
+const REVIEW_LLM_CONFIG_ENDPOINT = `${API_BASE_URL}/api/config/review-llm`;
 
 // 暴露API_BASE_URL到全局
 window.API_BASE_URL = API_BASE_URL;
@@ -25,6 +26,18 @@ const elements = {
     baseUrl: document.getElementById('base-url'),
     saveApiBtn: document.getElementById('save-api-btn'),
     currentModelName: document.getElementById('current-model-name'),
+    reviewEnabled: document.getElementById('review-enabled'),
+    reviewApiKey: document.getElementById('review-api-key'),
+    reviewModelId: document.getElementById('review-model-id'),
+    reviewBaseUrl: document.getElementById('review-base-url'),
+    saveReviewBtn: document.getElementById('save-review-btn'),
+    currentReviewModelName: document.getElementById('current-review-model-name'),
+    oobEnabled: document.getElementById('oob-enabled'),
+    oobProvider: document.getElementById('oob-provider'),
+    oobServer: document.getElementById('oob-server'),
+    oobToken: document.getElementById('oob-token'),
+    saveOobBtn: document.getElementById('save-oob-btn'),
+    currentOobProvider: document.getElementById('current-oob-provider'),
 
     // 输出元素
     loadingState: document.getElementById('loading-state'),
@@ -132,7 +145,7 @@ function updateProgressStep(step, status, message) {
         stepElement.classList.remove('active');
         stepElement.classList.add('completed');
         icon.className = 'fas fa-check-circle';
-        statusText.textContent = '已完成';
+        statusText.textContent = message || '已完成';
     }
 }
 
@@ -155,6 +168,7 @@ function hideLoading() {
 function showResult(data) {
     elements.emptyState.style.display = 'none';
     elements.resultContent.style.display = 'block';
+    elements.resultContent.dataset.vulnerabilityName = data.vulnerability_name || '';
 
     // 隐藏原有的详细内容区域
     elements.vulnDescription.parentElement.style.display = 'none';
@@ -164,13 +178,42 @@ function showResult(data) {
 
     // 显示简化的结果信息
     const resultContainer = document.getElementById('result-content');
+    const reviewInfoHtml = data.review_enabled ? `
+        <div style="background: ${data.review_applied ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)'};
+                    border: 1px solid ${data.review_applied ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)'};
+                    color: var(--text-primary); border-radius: 0.875rem; padding: 1rem; margin-bottom: 1.5rem; text-align: left;">
+            <div style="font-weight: 700; margin-bottom: 0.35rem;">
+                <i class="fas fa-search-plus" style="margin-right: 0.5rem;"></i>
+                二次审核：${data.review_applied ? '已应用' : '未应用'}
+            </div>
+            <div style="font-size: 0.9375rem; color: var(--text-secondary);">
+                审核模型：${data.review_model || '未配置'}
+                ${data.review_error ? `<div style="margin-top: 0.5rem; color: #f59e0b;">失败原因：${data.review_error}</div>` : ''}
+            </div>
+        </div>
+    ` : '';
+    const dependencyInfoHtml = data.dependency_check ? `
+        <div style="background: ${data.dependency_check.ok ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)'};
+                    border: 1px solid ${data.dependency_check.ok ? 'rgba(16, 185, 129, 0.35)' : 'rgba(245, 158, 11, 0.35)'};
+                    color: var(--text-primary); border-radius: 0.875rem; padding: 1rem; margin-bottom: 1.5rem; text-align: left;">
+            <div style="font-weight: 700; margin-bottom: 0.35rem;">
+                <i class="fas fa-box-open" style="margin-right: 0.5rem;"></i>
+                依赖预检：${data.dependency_check.ok ? '通过' : '发现缺失依赖'}
+            </div>
+            <div style="font-size: 0.9375rem; color: var(--text-secondary);">
+                ${data.dependency_check.summary || ''}
+            </div>
+        </div>
+    ` : '';
 
-    // 判断是否可验证
-    const isVerifiable = data.verifiable !== false;
+    // 判断是否可验证（兼容布尔值和数字）
+    const isVerifiable = data.verifiable === true || data.verifiable === 1;
     const vulnType = data.vulnerability_type || '未知类型';
 
     resultContainer.innerHTML = `
         <div style="text-align: center; padding: 3rem 2rem;">
+            ${reviewInfoHtml}
+            ${dependencyInfoHtml}
             <div style="margin-bottom: 2rem;">
                 <i class="fas fa-${isVerifiable ? 'check-circle' : 'hand-paper'}"
                    style="font-size: 4rem; color: ${isVerifiable ? '#10b981' : '#f59e0b'};"></i>
@@ -235,6 +278,7 @@ function formatCode(code) {
 function downloadPOC() {
     const code = elements.pocCode.textContent;
     const vulnType = elements.vulnType.textContent;
+    const vulnName = elements.resultContent.dataset.vulnerabilityName || vulnType;
 
     if (!code || code === '// 无代码生成') {
         showToast('没有可下载的代码', 'warning');
@@ -243,7 +287,8 @@ function downloadPOC() {
 
     // 创建文件名
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-    const filename = `poc_${vulnType.replace(/\s+/g, '_')}_${timestamp}.py`;
+    const safeName = vulnName.replace(/[^\w\u4e00-\u9fa5.-]+/g, '_');
+    const filename = `poc_${safeName}_${timestamp}.py`;
 
     // 创建Blob并下载
     const blob = new Blob([code], { type: 'text/plain' });
@@ -441,6 +486,190 @@ function updateCurrentModelDisplay(modelName) {
     }
 }
 
+function updateCurrentReviewModelDisplay(modelName) {
+    if (elements.currentReviewModelName) {
+        elements.currentReviewModelName.textContent = modelName || '未设置';
+    }
+}
+
+function updateCurrentOOBDisplay(summary) {
+    if (elements.currentOobProvider) {
+        elements.currentOobProvider.textContent = summary || '未设置';
+    }
+}
+
+async function saveOOBSettings() {
+    const enabled = elements.oobEnabled?.value === 'true';
+    const provider = elements.oobProvider?.value || 'interactsh';
+    const serverValue = elements.oobServer?.value.trim() || '';
+    const tokenValue = elements.oobToken?.value.trim() || '';
+
+    const saveBtn = elements.saveOobBtn;
+    const originalHTML = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 保存中...';
+
+    try {
+        const payload = {
+            enabled,
+            provider,
+            interactsh_server: provider === 'interactsh' ? serverValue : 'oast.me',
+            interactsh_token: provider === 'interactsh' ? (tokenValue || null) : null,
+            ceye_base_url: provider === 'ceye' ? (serverValue || 'http://api.ceye.io/v1') : 'http://api.ceye.io/v1',
+            ceye_token: provider === 'ceye' ? (tokenValue || null) : null,
+            poll_interval: 1,
+            max_polls: 3,
+        };
+
+        const response = await fetch(`${API_BASE_URL}/api/config/oob`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            localStorage.setItem('oob_api_config', JSON.stringify({
+                enabled,
+                provider,
+                server: serverValue,
+                token: tokenValue,
+                updateTime: new Date().toISOString()
+            }));
+            updateCurrentOOBDisplay(`${provider}${enabled ? '' : '（未启用）'}`);
+            showToast('✅ ' + data.message, 'success');
+        } else {
+            showToast('保存OOB配置失败', 'error');
+        }
+    } catch (error) {
+        console.error('保存OOB设置失败:', error);
+        showToast('❌ 保存OOB设置失败', 'error');
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalHTML;
+    }
+}
+
+async function saveReviewSettings() {
+    const apiKey = elements.reviewApiKey?.value.trim();
+    const modelId = elements.reviewModelId?.value.trim();
+    const baseUrl = elements.reviewBaseUrl?.value.trim();
+
+    if (!apiKey || !modelId || !baseUrl) {
+        showToast('请填写完整的二次审核模型设置', 'warning');
+        return;
+    }
+
+    const saveBtn = elements.saveReviewBtn;
+    const originalHTML = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 保存中...';
+
+    try {
+        const response = await fetch(REVIEW_LLM_CONFIG_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                api_key: apiKey,
+                model_id: modelId,
+                base_url: baseUrl,
+                temperature: 0.3,
+                max_tokens: null
+            })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            localStorage.setItem('review_llm_api_config', JSON.stringify({
+                enabled: elements.reviewEnabled?.value || 'false',
+                apiKey,
+                modelId,
+                baseUrl,
+                updateTime: new Date().toISOString()
+            }));
+            updateCurrentReviewModelDisplay(modelId);
+            showToast('✅ ' + data.message, 'success');
+        } else {
+            showToast('保存二次审核模型设置失败', 'error');
+        }
+    } catch (error) {
+        console.error('保存二次审核设置失败:', error);
+        showToast('❌ 保存二次审核设置失败', 'error');
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalHTML;
+    }
+}
+
+async function loadOOBSettings() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/config/oob`);
+        const data = await response.json();
+        if (data.success && data.config) {
+            const config = data.config;
+            if (elements.oobEnabled) {
+                elements.oobEnabled.value = String(Boolean(config.enabled));
+            }
+            if (elements.oobProvider) {
+                elements.oobProvider.value = config.provider || 'interactsh';
+            }
+            if (elements.oobServer) {
+                elements.oobServer.value = config.provider === 'ceye'
+                    ? (config.ceye_base_url || '')
+                    : (config.interactsh_server || '');
+            }
+            updateCurrentOOBDisplay(`${config.provider || 'interactsh'}${config.enabled ? '' : '（未启用）'}`);
+        }
+    } catch (error) {
+        console.error('加载OOB设置失败:', error);
+        const savedConfig = localStorage.getItem('oob_api_config');
+        if (savedConfig) {
+            const config = JSON.parse(savedConfig);
+            if (elements.oobEnabled) elements.oobEnabled.value = String(Boolean(config.enabled));
+            if (elements.oobProvider) elements.oobProvider.value = config.provider || 'interactsh';
+            if (elements.oobServer) elements.oobServer.value = config.server || '';
+            if (elements.oobToken) elements.oobToken.value = config.token || '';
+            updateCurrentOOBDisplay(`${config.provider || 'interactsh'}（本地）`);
+        } else {
+            updateCurrentOOBDisplay('加载失败');
+        }
+    }
+}
+
+async function loadReviewSettings() {
+    try {
+        const response = await fetch(REVIEW_LLM_CONFIG_ENDPOINT);
+        const data = await response.json();
+        if (data.success && data.config) {
+            const config = data.config;
+            if (elements.reviewModelId) elements.reviewModelId.value = config.model_id || '';
+            if (elements.reviewBaseUrl) elements.reviewBaseUrl.value = config.base_url || '';
+            updateCurrentReviewModelDisplay(config.model_id || '未设置');
+            const savedConfig = localStorage.getItem('review_llm_api_config');
+            if (savedConfig) {
+                const localConfig = JSON.parse(savedConfig);
+                if (elements.reviewApiKey) elements.reviewApiKey.value = localConfig.apiKey || '';
+                if (elements.reviewEnabled) elements.reviewEnabled.value = localConfig.enabled || 'false';
+            }
+        }
+    } catch (error) {
+        console.error('加载二次审核设置失败:', error);
+        const savedConfig = localStorage.getItem('review_llm_api_config');
+        if (savedConfig) {
+            const config = JSON.parse(savedConfig);
+            if (elements.reviewEnabled) elements.reviewEnabled.value = config.enabled || 'false';
+            if (elements.reviewApiKey) elements.reviewApiKey.value = config.apiKey || '';
+            if (elements.reviewModelId) elements.reviewModelId.value = config.modelId || '';
+            if (elements.reviewBaseUrl) elements.reviewBaseUrl.value = config.baseUrl || '';
+            updateCurrentReviewModelDisplay(config.modelId || '未设置');
+        }
+    }
+}
+
 // ========================================
 // API调用
 // ========================================
@@ -450,6 +679,7 @@ function updateCurrentModelDisplay(modelName) {
  */
 async function generatePOC() {
     const vulnerabilityInfo = elements.vulnerabilityInfo.value.trim();
+    const enableSecondReview = elements.reviewEnabled?.value === 'true';
 
     // 验证输入
     if (!vulnerabilityInfo) {
@@ -469,7 +699,8 @@ async function generatePOC() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                vulnerability_info: vulnerabilityInfo
+                vulnerability_info: vulnerabilityInfo,
+                enable_second_review: enableSecondReview,
             })
         });
 
@@ -510,7 +741,7 @@ async function generatePOC() {
                             // 更新进度显示
                             console.log(`进度更新: 第${json.step}步 - ${json.message}`);
                             if (json.step > 0) {
-                                updateProgressStep(json.step, 'active', json.message);
+                                updateProgressStep(json.step, json.status || 'active', json.message);
                             }
                         } else if (json.type === 'result') {
                             // 接收到最终结果
@@ -520,8 +751,15 @@ async function generatePOC() {
                             if (json.data.success) {
                                 // 标记步骤为完成
                                 updateProgressStep(1, 'completed', '已完成');
+                                updateProgressStep(2, 'completed', json.data.review_enabled ? (json.data.review_applied ? '已完成并应用' : (json.data.review_error ? '审核失败，已保留初稿' : '已完成')) : '已跳过');
                                 showResult(json.data);
-                                showToast('POC代码生成成功', 'success');
+                                if (json.data.review_enabled && json.data.review_applied) {
+                                    showToast('POC代码生成成功，二次审核已应用', 'success');
+                                } else if (json.data.review_enabled && json.data.review_error) {
+                                    showToast('POC代码生成成功，但二次审核失败，已保留初稿', 'warning');
+                                } else {
+                                    showToast('POC代码生成成功', 'success');
+                                }
                             } else {
                                 showError(json.data.error || 'POC生成失败');
                             }
@@ -560,6 +798,7 @@ function switchTab(tabName) {
     const tabs = document.querySelectorAll('.nav-tab');
     const generatorSection = document.querySelector('.generator-section');
     const librarySection = document.querySelector('.library-section');
+    const recordsSection = document.querySelector('.records-section');
 
     // 更新标签状态
     tabs.forEach(tab => {
@@ -574,15 +813,34 @@ function switchTab(tabName) {
     if (tabName === 'generator') {
         generatorSection.style.display = 'block';
         librarySection.style.display = 'none';
+        if (recordsSection) recordsSection.style.display = 'none';
     } else if (tabName === 'library') {
         generatorSection.style.display = 'none';
         librarySection.style.display = 'block';
+        if (recordsSection) recordsSection.style.display = 'none';
 
-        // 加载POC库数据 - 使用新的库管理系统
+        // 加载POC库数��� - 使用新的库管理系统
         if (typeof initLibrary === 'function') {
             initLibrary();
         }
+    } else if (tabName === 'records') {
+        generatorSection.style.display = 'none';
+        librarySection.style.display = 'none';
+        if (recordsSection) recordsSection.style.display = 'block';
+
+        if (typeof initBatchRecords === 'function') {
+            initBatchRecords();
+        }
     }
+}
+
+function resolveInitialTab() {
+    const params = new URLSearchParams(window.location.search);
+    const requestedTab = params.get('tab');
+    if (requestedTab === 'library' || requestedTab === 'records' || requestedTab === 'generator') {
+        return requestedTab;
+    }
+    return 'generator';
 }
 
 /**
@@ -980,8 +1238,8 @@ function renderManualGuide(manualSteps) {
                 ` : ''}
 
                 ${manualSteps.verification.example_output ? `
-                    <div style="margin-top: 1rem;">
-                        <strong>示例输出:</strong>
+                    <div class="example-output-wrapper">
+                        <strong><i class="fas fa-terminal"></i> 示例输出:</strong>
                         <div class="example-output">${manualSteps.verification.example_output}</div>
                     </div>
                 ` : ''}
@@ -1119,6 +1377,11 @@ async function executePOC() {
  * 从卡片删除POC
  */
 async function deletePOCFromCard(pocId) {
+    // 新版POC库已统一到 library.js，旧卡片入口直接复用新版删除逻辑。
+    if (typeof window.deletePOCV2 === 'function') {
+        return window.deletePOCV2(pocId);
+    }
+
     if (!confirm(`确定要删除此POC吗？此操作不可恢复！`)) {
         return;
     }
@@ -1130,12 +1393,12 @@ async function deletePOCFromCard(pocId) {
 
         const data = await response.json();
 
-        if (data.success) {
+        if (response.ok && data.success) {
             showToast('POC已删除', 'success');
             loadPOCLibrary();
             loadStatistics();
         } else {
-            showToast(data.error || '删除失败', 'error');
+            showToast(data.detail || data.error || '删除失败', 'error');
         }
 
     } catch (error) {
@@ -1422,7 +1685,6 @@ async function loadStatistics() {
             const stats = statsData.statistics;
             document.getElementById('stat-total').textContent = stats.total_pocs || 0;
             document.getElementById('stat-python').textContent = stats.python_pocs || 0;
-            document.getElementById('stat-nuclei').textContent = stats.nuclei_pocs || 0;
         }
 
         // 加载漏洞类型列表
@@ -1485,6 +1747,12 @@ function initializeEventListeners() {
 
     // API设置按钮点击事件
     elements.saveApiBtn.addEventListener('click', saveAPISettings);
+    if (elements.saveReviewBtn) {
+        elements.saveReviewBtn.addEventListener('click', saveReviewSettings);
+    }
+    if (elements.saveOobBtn) {
+        elements.saveOobBtn.addEventListener('click', saveOOBSettings);
+    }
 
     // 复制按钮
     elements.copyBtn.addEventListener('click', copyToClipboard);
@@ -1593,6 +1861,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 加载API设置
     loadAPISettings();
+    loadReviewSettings();
+    loadOOBSettings();
+
+    // 支持通过查询参数直接进入指定页面，例如 /?tab=records
+    switchTab(resolveInitialTab());
 });
 
 // ========================================

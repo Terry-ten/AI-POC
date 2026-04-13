@@ -12,8 +12,17 @@ from api.routes import router
 from config import settings
 import uvicorn
 import logging
+from logging.handlers import RotatingFileHandler
 import time
 from pathlib import Path
+
+
+def _apply_no_cache_headers(response):
+    """开发期禁用前端静态资源缓存，减少手动强刷。"""
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -24,14 +33,26 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# 配置日志
+# 配置日志（带轮转）
+log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+# 文件处理器 - 10MB轮转，保留5个备份
+file_handler = RotatingFileHandler(
+    "api_server.log",
+    maxBytes=10*1024*1024,  # 10MB
+    backupCount=5,
+    encoding='utf-8'
+)
+file_handler.setFormatter(log_formatter)
+
+# 控制台处理器
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(log_formatter)
+
+# 配置根日志
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("api_server.log", encoding='utf-8'),
-        logging.StreamHandler()
-    ]
+    handlers=[file_handler, console_handler]
 )
 logger = logging.getLogger(__name__)
 
@@ -46,6 +67,8 @@ async def log_requests(request: Request, call_next):
 
     try:
         response = await call_next(request)
+        if request.url.path in {"/", "/nuclei"} or request.url.path.startswith(("/css/", "/js/", "/assets/")):
+            _apply_no_cache_headers(response)
         process_time = time.time() - start_time
         logger.info(f"响应状态: {response.status_code} | 耗时: {process_time:.3f}秒")
         return response
@@ -81,7 +104,7 @@ async def root():
     """根路径 - 返回前端HTML页面"""
     index_path = frontend_dir / "index.html"
     if index_path.exists():
-        return FileResponse(str(index_path))
+        return _apply_no_cache_headers(FileResponse(str(index_path)))
     else:
         # 如果前端文件不存在，返回API信息
         return {
@@ -90,6 +113,16 @@ async def root():
             "warning": settings.SECURITY_WARNING,
             "docs": "/docs",
         }
+
+
+@app.get("/nuclei")
+async def nuclei_page():
+    """Nuclei 扫描器页面"""
+    nuclei_path = frontend_dir / "nuclei.html"
+    if nuclei_path.exists():
+        return _apply_no_cache_headers(FileResponse(str(nuclei_path)))
+    else:
+        return {"error": "Nuclei 扫描器页面不存在"}
 
 
 if __name__ == "__main__":
@@ -107,7 +140,7 @@ if __name__ == "__main__":
     print(f"📚 API文档: http://{settings.API_HOST}:{settings.API_PORT}/docs\n")
 
     uvicorn.run(
-        app,
+        app,  # 直接使用app对象
         host=settings.API_HOST,
         port=settings.API_PORT,
         log_level="info",

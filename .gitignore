@@ -26,9 +26,9 @@ ENV/
 env/
 .venv
 
-# 环境变量
-.env
-.env.local
+# 环境变量（不再使用）
+# .env
+# .env.local
 
 # IDE
 .vscode/
@@ -54,6 +54,8 @@ htmlcov/
 *.tmp
 temp/
 nul
+release/
+nuclei.exe
 
 # 截图和临时图片
 img*.png
@@ -72,3 +74,11 @@ pocs/*.db
 pocs/python/*.py
 pocs/nuclei/*.yaml
 pocs/metadata/*.json
+
+# LLM配置文件（包含敏感API密钥）
+pocs/llm_config.json
+pocs/oob_config.json
+pocs/review_llm_config.json
+pocs/batch_results/
+pocs/metadata/last_llm_response*.json
+pocs/metadata/last_llm_response*.txt

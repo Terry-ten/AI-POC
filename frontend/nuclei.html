@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuclei 漏洞扫描器 - AI-POC</title>
+    <link rel="stylesheet" href="css/style.css?v=7.1">
+    <link rel="stylesheet" href="css/nuclei.css?v=2.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <i class="fas fa-shield-alt"></i>
+                <span>POC Generator</span>
+            </div>
+            <div class="nav-tabs">
+                <a href="/?tab=generator" class="nav-tab">
+                    <i class="fas fa-magic"></i>
+                    生成POC
+                </a>
+                <a href="/?tab=library" class="nav-tab">
+                    <i class="fas fa-database"></i>
+                    POC库
+                </a>
+                <a href="/?tab=records" class="nav-tab">
+                    <i class="fas fa-clipboard-list"></i>
+                    检测记录
+                </a>
+                <a href="/nuclei" class="nav-tab active">
+                    <i class="fas fa-crosshairs"></i>
+                    Nuclei扫描
+                </a>
+            </div>
+            <div class="nav-menu">
+                <a href="http://127.0.0.1:8000/docs" target="_blank" class="nav-link">API文档</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主容器 -->
+    <main class="main-container nuclei-main">
+        <!-- 顶部控制栏 -->
+        <div class="top-control-bar">
+            <div class="target-input-group">
+                <label for="target-url">
+                    <i class="fas fa-globe"></i>
+                    目标 URL
+                </label>
+                <input
+                    type="url"
+                    id="target-url"
+                    class="target-input"
+                    placeholder="http://example.com"
+                >
+            </div>
+            <div class="control-actions">
+                <div id="nuclei-status" class="nuclei-status">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>检查状态...</span>
+                </div>
+                <button id="scan-btn" class="btn-scan btn-scan-secondary" disabled>
+                    <i class="fas fa-play"></i>
+                    <span>立即扫描</span>
+                </button>
+                <button id="create-task-btn" class="btn-scan" disabled>
+                    <i class="fas fa-list-check"></i>
+                    <span>创建任务</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 三栏布局 -->
+        <div class="three-column-layout">
+            <!-- 左侧：文件夹分类 -->
+            <div class="column column-folders">
+                <div class="column-header">
+                    <h3>
+                        <i class="fas fa-folder-tree"></i>
+                        模板分类
+                    </h3>
+                    <button id="refresh-folders-btn" class="btn-icon" title="刷新">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+                <div id="folders-list" class="folders-list">
+                    <div class="loading-placeholder">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>加载中...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 中间：模板列表 -->
+            <div class="column column-templates">
+                <div class="column-header">
+                    <h3>
+                        <i class="fas fa-file-code"></i>
+                        模板列表
+                        <span id="templates-count" class="count-badge">0</span>
+                    </h3>
+                    <div class="header-actions">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="template-search" placeholder="搜索模板...">
+                        </div>
+                    </div>
+                </div>
+                <div class="templates-toolbar">
+                    <div class="select-actions">
+                        <button id="select-all-btn" class="btn-small">
+                            <i class="fas fa-check-double"></i>
+                            全选
+                        </button>
+                        <button id="deselect-all-btn" class="btn-small">
+                            <i class="fas fa-times"></i>
+                            取消
+                        </button>
+                        <span class="selected-info">
+                            已选 <strong id="selected-count">0</strong> 个
+                        </span>
+                    </div>
+                </div>
+                <div id="templates-list" class="templates-list">
+                    <div class="loading-placeholder">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <span>加载中...</span>
+                    </div>
+                </div>
+                <!-- 分页 -->
+                <div id="pagination" class="pagination">
+                    <button id="prev-page" class="btn-page" disabled>
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <span class="page-info">
+                        第 <span id="current-page">1</span> / <span id="total-pages">1</span> 页
+                    </span>
+                    <button id="next-page" class="btn-page" disabled>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 右侧：扫描结果 -->
+            <div class="column column-results">
+                <div class="column-header">
+                    <h3>
+                        <i class="fas fa-chart-bar"></i>
+                        扫描结果
+                        <span id="findings-count" class="count-badge danger" style="display:none;">0</span>
+                    </h3>
+                    <button id="clear-results-btn" class="btn-icon" title="清空结果">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+
+                <!-- 扫描状态 -->
+                <div id="scan-status" class="scan-status" style="display:none;">
+                    <div class="status-icon">
+                        <i class="fas fa-spinner fa-spin"></i>
+                    </div>
+                    <div class="status-text">
+                        <span id="status-message">正在扫描...</span>
+                    </div>
+                </div>
+
+                <!-- 空状态 -->
+                <div id="results-empty" class="results-empty">
+                    <i class="fas fa-search"></i>
+                    <p>选择模板并输入目标开始扫描</p>
+                </div>
+
+                <!-- 结果列表 -->
+                <div id="results-list" class="results-list" style="display:none;">
+                    <!-- 结果项将动态添加 -->
+                </div>
+
+                <!-- 扫描完成摘要 -->
+                <div id="scan-summary" class="scan-summary" style="display:none;">
+                    <div class="summary-item">
+                        <span class="label">扫描目标</span>
+                        <span id="summary-target" class="value">-</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">发现漏洞</span>
+                        <span id="summary-findings" class="value highlight">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">扫描状态</span>
+                        <span id="summary-status" class="value">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Toast通知 -->
+    <div id="toast" class="toast">
+        <i class="fas fa-check-circle"></i>
+        <span id="toast-message">操作成功</span>
+    </div>
+
+    <!-- 模板详情模态框 -->
+    <div id="template-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">模板详情</h3>
+                <button class="modal-close" onclick="closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <pre id="modal-code" class="code-block"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/nuclei.js?v=2.0"></script>
+</body>
+</html>

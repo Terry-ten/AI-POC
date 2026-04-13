@@ -2,6 +2,8 @@
 
 基于大模型API的Web漏洞POC自动生成、管理和执行系统
 
+补充文档索引见 [docs/README.md](./docs/README.md)
+
 [![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-green.svg)](https://fastapi.tiangolo.com)
 [![License](https://img.shields.io/badge/License-Educational-red.svg)](LICENSE)
@@ -97,8 +99,8 @@ models/schemas.py                # POCRequest/POCResponse 数据模型
 **对应文件**：
 ```
 services/poc_library_service.py  # POC库管理核心服务
-services/nuclei_engine.py        # Nuclei执行引擎
-api/routes.py                    # 6个POC库API端点
+services/nuclei_service.py       # Nuclei扫描与模板服务
+api/routes.py                    # 7个POC库API端点
 pocs/                            # POC存储目录
   ├── poc_library.db             # SQLite数据库
   ├── python/                    # Python POC文件
@@ -118,7 +120,7 @@ pocs/                            # POC存储目录
 **对应文件**：
 ```
 services/poc_library_service.py  # execute_poc() 路由逻辑
-services/nuclei_engine.py        # Nuclei执行引擎
+services/nuclei_service.py       # Nuclei扫描与模板服务
 ```
 
 ---
@@ -134,7 +136,7 @@ AI-POC/
 ├── requirements.txt             # 📦 依赖列表
 │
 ├── api/                         # 🌐 API层
-│   └── routes.py                # 路由定义（13个端点）
+│   └── routes.py                # 路由定义（17个端点）
 │
 ├── models/                      # 📋 数据模型层
 │   └── schemas.py               # Pydantic数据模型
@@ -142,7 +144,7 @@ AI-POC/
 ├── services/                    # 💼 业务逻辑层
 │   ├── llm_service.py           # AI生成服务
 │   ├── poc_library_service.py  # POC库管理服务
-│   └── nuclei_engine.py         # Nuclei执行引擎
+│   └── nuclei_service.py        # Nuclei扫描与模板服务
 │
 ├── pocs/                        # 💾 POC存储目录
 │   ├── README.md                # POC库使用文档
@@ -176,26 +178,33 @@ AI-POC/
 功能：定义所有API端点，处理HTTP请求
 端点列表：
 1. POST /api/generate-poc        # 生成POC
-2. POST /api/scan                # 扫描验证
-3. GET  /api/health              # 健康检查
-4. GET  /api/pocs/search         # 搜索POC
-5. GET  /api/pocs/{id}           # 获取POC详情
-6. POST /api/pocs/{id}/execute   # 执行POC
-7. DELETE /api/pocs/{id}         # 删除POC
-8. GET  /api/pocs/statistics     # 统计信息
-9. GET  /api/pocs/vuln-types     # 漏洞类型列表
+2. GET  /api/pocs/search         # 搜索POC
+3. GET  /api/pocs/{id}           # 获取POC详情
+4. POST /api/pocs/{id}/execute   # 执行POC
+5. DELETE /api/pocs/{id}         # 删除POC
+6. GET  /api/pocs/statistics     # 统计信息
+7. GET  /api/pocs/vuln-types     # 漏洞类型列表
+8. GET  /api/pocs/{id}/code      # 获取POC文件内容
+9. POST /api/config/llm          # 更新LLM配置
+10. GET /api/config/llm          # 获取LLM配置
+11. GET /api/nuclei/status       # 检查Nuclei状态
+12. GET /api/nuclei/folders      # 获取模板目录
+13. GET /api/nuclei/templates    # 分页获取模板
+14. GET /api/nuclei/template/content # 查看模板内容
+15. POST /api/nuclei/scan        # 执行Nuclei扫描
+16. POST /api/nuclei/scan/stream # 流式扫描
+17. POST /api/nuclei/cache/clear # 清除模板缓存
 ```
 
 #### 📌 services/llm_service.py - AI生成服务
 ```python
 功能：调用大模型API生成POC代码
 核心方法：
-- generate_poc_with_review()     # 三步生成流程
-  1. 生成初始POC
-  2. AI代码评审
-  3. 根据评审重新生成
-- call_llm_api()                 # 调用LLM API
-- parse_llm_response()           # 解析JSON响应
+- generate_initial_poc()         # 生成Python POC或人工操作指南
+- update_config()                # 动态更新LLM配置
+- get_current_config()           # 获取当前配置摘要
+- _call_llm_api()                # 调用LLM API
+- _parse_llm_json_response()     # 解析JSON响应
 ```
 
 #### 📌 services/poc_library_service.py - POC库管理
@@ -210,14 +219,17 @@ AI-POC/
 - get_statistics()               # 获取统计信息
 ```
 
-#### 📌 services/nuclei_engine.py - Nuclei引擎
+#### 📌 services/nuclei_service.py - Nuclei服务
 ```python
-功能：执行Nuclei YAML模板
+功能：管理Nuclei模板并执行扫描
 核心方法：
-- execute()                      # 执行Nuclei模板
-  命令：nuclei -t template.yaml -u target -json
-- validate_template()            # 验证模板格式
-- parse_template_info()          # 解析模板信息
+- check_nuclei_available()       # 检查Nuclei状态
+- get_templates_by_folder()      # 分页获取模板列表
+- get_template_content()         # 查看模板内容
+- scan_single()                  # 扫描单个模板
+- scan_multiple()                # 扫描多个模板
+- scan_folder()                  # 扫描整个目录
+- scan_stream_async()            # 流式返回扫描结果
 ```
 
 #### 📌 frontend/ - 前端界面
@@ -253,28 +265,41 @@ fastapi>=0.110.0           # Web框架
 uvicorn[standard]>=0.27.0  # ASGI服务器
 pydantic>=2.6.0            # 数据验证
 openai>=1.0.0              # LLM API SDK
-python-dotenv>=1.0.0       # 环境变量
 PyYAML>=6.0.1              # Nuclei模板解析
+dnspython>=2.4.0           # 部分POC与DNS处理
 ```
 
 #### 2. 配置API密钥
 
-**方式一：修改 config.py**（推荐开发环境）
+当前实现不是通过 `config.py` 配置 LLM 参数。`config.py` 只包含：
 
-```python
-# config.py
-LLM_API_KEY = "your-api-key-here"
-LLM_API_BASE = "https://api.siliconflow.cn/v1"
-LLM_MODEL = "moonshotai/Kimi-K2-Instruct-0905"
-```
+- `API_HOST`
+- `API_PORT`
+- `SECURITY_WARNING`
 
-**方式二：环境变量**（推荐生产环境）
+LLM 配置的实际来源是：
+
+- 前端页面中的“API设置”
+- `POST /api/config/llm` 接口
+- 持久化文件 `pocs/llm_config.json`
+
+**方式一：通过前端页面配置**（推荐）
+
+- 打开首页
+- 在“大模型API设置”区域填写 `API Key`、`模型ID`、`Base URL`
+- 点击“保存设置”
+
+**方式二：通过接口配置**
 
 ```bash
-# .env
-LLM_API_KEY=your-api-key-here
-LLM_API_BASE=https://api.openai.com/v1
-LLM_MODEL=gpt-4
+curl -X POST "http://127.0.0.1:8000/api/config/llm" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "api_key": "your-api-key",
+    "model_id": "Qwen/Qwen3-Coder-480B-A35B-Instruct",
+    "base_url": "https://api.siliconflow.cn/v1",
+    "temperature": 1
+  }'
 ```
 
 #### 3. 启动服务
@@ -555,14 +580,21 @@ URL会自动标准化为：`http(s)://x.x.x.x:port/`
 | 端点 | 方法 | 功能 | 说明 |
 |------|------|------|------|
 | `/api/generate-poc` | POST | 生成POC | AI生成+自动保存 |
-| `/api/scan` | POST | 扫描验证 | 目标漏洞检测 |
-| `/api/health` | GET | 健康检查 | 服务状态 |
 | `/api/pocs/search` | GET | 搜索POC | 多条件筛选 |
-| `/api/pocs/{id}` | GET | POC详情 | 包含文件内容 |
+| `/api/pocs/{id}` | GET | POC详情 | 返回数据库记录 |
 | `/api/pocs/{id}/execute` | POST | 执行POC | 路由到对应引擎 |
 | `/api/pocs/{id}` | DELETE | 删除POC | 删除文件+记录 |
 | `/api/pocs/statistics` | GET | 统计信息 | POC数量统计 |
 | `/api/pocs/vuln-types` | GET | 漏洞类型 | 所有类型列表 |
+| `/api/pocs/{id}/code` | GET | 查看代码 | 读取POC文件内容 |
+| `/api/config/llm` | POST/GET | LLM配置 | 更新或读取模型配置 |
+| `/api/nuclei/status` | GET | Nuclei状态 | 可执行文件和模板统计 |
+| `/api/nuclei/folders` | GET | 模板目录 | 目录与数量 |
+| `/api/nuclei/templates` | GET | 模板列表 | 分页与搜索 |
+| `/api/nuclei/template/content` | GET | 模板内容 | 读取YAML源码 |
+| `/api/nuclei/scan` | POST | 执行扫描 | 同步Nuclei扫描 |
+| `/api/nuclei/scan/stream` | POST | 流式扫描 | SSE返回扫描结果 |
+| `/api/nuclei/cache/clear` | POST | 清缓存 | 强制重建模板缓存 |
 
 ---
 
@@ -586,7 +618,8 @@ URL会自动标准化为：`http(s)://x.x.x.x:port/`
   "original_vulnerability_info": "目标网站...",
   "poc_code": "import requests\nimport time\n\n# POC代码...",
   "explanation": "该POC用于验证SQL注入漏洞...",
-  "poc_id": 5,  // 新增：保存到库后的ID
+  "verifiable": true,
+  "manual_steps": null,
   "warning": "⚠️ 警告：本工具仅用于授权的安全测试"
 }
 ```
@@ -637,9 +670,10 @@ curl "http://127.0.0.1:8000/api/pocs/search?keyword=mysql"
       "poc_file_path": "pocs/python/sqli_20250113_a1b2c3.py",
       "create_time": "2025-01-13T14:30:22",
       "last_used": "2025-01-13T15:20:10",
-      "success_count": 5,
-      "fail_count": 2,
-      "tags": ["mysql", "time-based", "blind-sqli"]
+      "tags": "mysql,time-based,blind-sqli",
+      "verifiable": 1,
+      "manual_steps": null,
+      "explanation": "通过报错信息判断是否存在注入。"
     }
   ],
   "total": 1
@@ -663,9 +697,13 @@ curl "http://127.0.0.1:8000/api/pocs/search?keyword=mysql"
 ```json
 {
   "success": true,
-  "output": "[+] 漏洞存在：响应延迟3秒\n[+] 数据库版本：MySQL 5.7.28",
-  "execution_time": 3.25,
-  "vulnerable": true
+  "poc_id": 1,
+  "target_url": "http://test.com",
+  "result": {
+    "vulnerable": true,
+    "reason": "检测到SQL错误回显",
+    "details": "响应体中包含数据库报错关键字"
+  }
 }
 ```
 
@@ -673,9 +711,7 @@ curl "http://127.0.0.1:8000/api/pocs/search?keyword=mysql"
 ```json
 {
   "success": false,
-  "error": "连接超时",
-  "output": "",
-  "vulnerable": false
+  "error": "连接超时"
 }
 ```
 
@@ -697,23 +733,13 @@ curl -X POST "http://127.0.0.1:8000/api/pocs/1/execute" \
 {
   "success": true,
   "statistics": {
-    "total_pocs": 15,
-    "python_pocs": 12,
-    "nuclei_pocs": 3,
-    "most_used_pocs": [
-      {"id": 1, "vuln_name": "MySQL盲注POC", "use_count": 10},
-      {"id": 5, "vuln_name": "XSS检测POC", "use_count": 8}
-    ],
-    "recent_pocs": [
-      {"id": 15, "vuln_name": "RCE漏洞POC", "create_time": "2025-01-13T16:00:00"}
-    ],
-    "vuln_type_distribution": {
-      "sqli": 5,
-      "xss": 4,
-      "rce": 3,
-      "upload": 2,
-      "ssrf": 1
-    }
+    "total_pocs": 61,
+    "python_pocs": 52,
+    "nuclei_pocs": 0,
+    "recent_used": [
+      {"id": 124, "name": "远程命令执行_20251203_053824", "last_used": "2025-12-02 21:38:35"},
+      {"id": 112, "name": "任意文件写入_20251128_035640", "last_used": "2025-11-27 19:56:54"}
+    ]
   }
 }
 ```
@@ -733,28 +759,15 @@ curl -X POST "http://127.0.0.1:8000/api/pocs/1/execute" \
     ↓
 POST /api/generate-poc (SSE流式响应)
     ↓
-后端: llm_service.generate_poc_with_review()
+后端: llm_service.generate_initial_poc()
     ↓
 ┌─────────────────────────────────────┐
-│ 第1步：生成初始POC                  │
+│ 单步生成流程                        │
 │ - 构造提示词                        │
 │ - 调用LLM API                       │
 │ - 解析JSON响应                      │
+│ - 判断 verifiable / manual_steps    │
 │ - 发送进度: {type: "status", step: 1}│
-└─────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────┐
-│ 第2步：AI代码评审                   │
-│ - 将生成的POC发送给AI审查           │
-│ - 检查安全性、完整性、可执行性      │
-│ - 发送进度: {type: "status", step: 2}│
-└─────────────────────────────────────┘
-    ↓
-┌─────────────────────────────────────┐
-│ 第3步：根据评审重新生成             │
-│ - 结合评审意见改进POC               │
-│ - 再次调用LLM API                   │
-│ - 发送进度: {type: "status", step: 3}│
 └─────────────────────────────────────┘
     ↓
 自动保存到POC库
@@ -767,16 +780,15 @@ poc_library_service.save_poc()
 │    示例: sqli_20250113_a1b2c3.py   │
 │                                     │
 │ 2. 保存文件到 pocs/python/          │
+│    或保存到 pocs/metadata/          │
 │                                     │
 │ 3. 插入数据库记录                   │
 │    INSERT INTO poc_records (...)   │
-│                                     │
-│ 4. 返回POC ID                       │
 └─────────────────────────────────────┘
     ↓
 发送最终结果: {type: "result", data: {...}}
     ↓
-前端显示POC代码 + Toast提示
+前端提示“已保存到POC库”
 ```
 
 #### POC执行流程
@@ -800,7 +812,7 @@ POST /api/pocs/1/execute
 │    if poc_type == "python":        │
 │       → _execute_python_poc()      │
 │    elif poc_type == "nuclei":      │
-│       → nuclei_engine.execute()    │
+│       → nuclei_service.scan_single()│
 └─────────────────────────────────────┘
     ↓
 [Python引擎执行路径]
@@ -816,39 +828,28 @@ POST /api/pocs/1/execute
 │    module = importlib.util.module_from_spec()│
 │                                     │
 │ 3. 执行POC函数                      │
-│    result = module.verify(target_url)│
-│                                     │
-│ 4. 捕获输出和异常                   │
-│    stdout, stderr = capture_output()│
+│    result = module.scan(target_url)  │
 └─────────────────────────────────────┘
     ↓
 [Nuclei引擎执行路径]
     ↓
 ┌─────────────────────────────────────┐
-│ nuclei_engine.execute()             │
+│ nuclei_service.scan_single()        │
 │                                     │
-│ 1. 检查nuclei是否安装               │
-│    result = subprocess.run(["nuclei", "-version"])│
+│ 1. 检查nuclei.exe是否可用           │
+│    check_nuclei_available()         │
 │                                     │
 │ 2. 执行nuclei命令                   │
-│    nuclei -t template.yaml -u target -json -silent│
+│    nuclei.exe -u target -jsonl -silent -t template│
 │                                     │
 │ 3. 解析JSON输出                     │
 │    for line in stdout.splitlines():│
 │       data = json.loads(line)      │
-│       if data.get("matched"):      │
-│           vulnerable = True        │
+│       findings.append(format(data))│
 └─────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────┐
-│ 更新数据库统计                      │
-│ if success:                         │
-│    UPDATE poc_records SET           │
-│    success_count = success_count + 1│
-│ else:                               │
-│    UPDATE poc_records SET           │
-│    fail_count = fail_count + 1     │
-│                                     │
+│ 更新数据库字段                      │
 │ UPDATE last_used = CURRENT_TIMESTAMP│
 └─────────────────────────────────────┘
     ↓
@@ -873,10 +874,11 @@ CREATE TABLE poc_records (
     poc_file_path TEXT NOT NULL,          -- POC文件路径
     create_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_used TIMESTAMP,                  -- 最后使用时间
-    success_count INTEGER DEFAULT 0,      -- 成功次数
-    fail_count INTEGER DEFAULT 0,         -- 失败次数
-    tags TEXT,                            -- 标签（JSON数组）
-    metadata TEXT                         -- 元数据（JSON对象）
+    tags TEXT,                            -- 标签（逗号分隔字符串）
+    metadata TEXT,                        -- 元数据（JSON对象）
+    verifiable BOOLEAN DEFAULT 1,         -- 是否可自动化验证
+    manual_steps TEXT,                    -- 人工操作指南（JSON）
+    explanation TEXT                      -- 说明信息
 );
 
 -- 索引
@@ -897,10 +899,11 @@ CREATE INDEX idx_create_time ON poc_records(create_time DESC);
 | `poc_file_path` | TEXT | 文件相对路径 | pocs/python/sqli_xxx.py |
 | `create_time` | TIMESTAMP | 创建时间 | 2025-01-13 14:30:22 |
 | `last_used` | TIMESTAMP | 最后使用时间 | 2025-01-13 15:20:10 |
-| `success_count` | INTEGER | 执行成功次数 | 5 |
-| `fail_count` | INTEGER | 执行失败次数 | 2 |
-| `tags` | TEXT | JSON数组 | ["mysql", "blind"] |
+| `tags` | TEXT | 逗号分隔标签 | mysql,blind |
 | `metadata` | TEXT | 扩展元数据JSON | {"author": "AI"} |
+| `verifiable` | BOOLEAN | 是否可自动化验证 | 1 |
+| `manual_steps` | TEXT | 人工操作指南JSON | {"steps":[...]} |
+| `explanation` | TEXT | 说明信息 | 通过错误回显验证 |
 
 ---
 
@@ -958,9 +961,9 @@ def execute_poc(self, poc_id: int, target_url: str) -> Dict:
             target_url
         )
     elif poc["poc_type"] == "nuclei":
-        result = self.nuclei_engine.execute(
-            poc["poc_file_path"],
-            target_url
+        result = nuclei_service.scan_single(
+            target_url,
+            poc["poc_file_path"]
         )
     else:
         raise ValueError(f"不支持的POC类型: {poc['poc_type']}")
@@ -988,44 +991,12 @@ def _execute_python_poc(self, poc_file: str, target_url: str) -> Dict:
         return {"success": False, "error": "POC缺少verify函数"}
 ```
 
-**Nuclei引擎**：命令行调用
+**Nuclei服务**：命令行调用
 
 ```python
-def execute(self, template_path: str, target_url: str, timeout: int = 30) -> Dict:
-    # 构造nuclei命令
-    cmd = [
-        self.nuclei_path,
-        "-t", template_path,      # 模板路径
-        "-u", target_url,          # 目标URL
-        "-json",                   # JSON输出
-        "-silent",                 # 静默模式
-        "-no-color"                # 无颜色输出
-    ]
-
-    # 执行命令
-    result = subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=timeout
-    )
-
-    # 解析JSON Lines输出
-    vulnerable = False
-    for line in result.stdout.splitlines():
-        try:
-            data = json.loads(line)
-            if data.get("matched"):
-                vulnerable = True
-                break
-        except json.JSONDecodeError:
-            continue
-
-    return {
-        "success": vulnerable,
-        "output": result.stdout,
-        "error": result.stderr if result.returncode != 0 else None
-    }
+def scan_single(self, target_url: str, template_path: str, timeout: int = 60) -> Dict:
+    full_path = self.templates_dir / Path(template_path)
+    return self._execute_scan(target_url, [str(full_path)], timeout)
 ```
 
 ---
@@ -1139,22 +1110,26 @@ function renderPOCList(pocs) {
 
 ```python
 class Settings:
-    # ========== API服务配置 ==========
     API_HOST: str = "127.0.0.1"           # 监听地址
     API_PORT: int = 8000                  # 监听端口
-
-    # ========== 大模型配置 ==========
-    LLM_API_KEY: str = "your-key"         # API密钥
-    LLM_API_BASE: str = "https://api.siliconflow.cn/v1"
-    LLM_MODEL: str = "moonshotai/Kimi-K2-Instruct-0905"
-    LLM_TEMPERATURE: float = 0.7          # 随机性(0-1)
-    LLM_MAX_TOKENS: int = 2000            # 最大输出长度
-    LLM_TIMEOUT: int = 120                # 超时时间(秒)
-
-    # ========== POC库配置 ==========
-    POC_STORAGE_DIR: str = "pocs"         # POC存储目录
-    POC_DB_PATH: str = "pocs/poc_library.db"
+    SECURITY_WARNING: str = "..."         # 安全提示文案
 ```
+
+### LLM 配置来源
+
+当前版本的 LLM 配置不在 `config.py` 中维护，而是通过以下方式生效：
+
+- 前端首页中的“API设置”
+- `POST /api/config/llm` 接口
+- 本地持久化文件 `pocs/llm_config.json`
+
+运行时使用的关键参数包括：
+
+- `api_key`
+- `model_id`
+- `base_url`
+- `temperature`
+- `max_tokens`
 
 ### 支持的大模型服务
 
@@ -1168,18 +1143,27 @@ class Settings:
 
 **配置示例**：
 
-```python
-# 使用OpenAI GPT-4
-LLM_API_BASE = "https://api.openai.com/v1"
-LLM_MODEL = "gpt-4"
+```json
+{
+  "api_key": "your-api-key",
+  "model_id": "gpt-4",
+  "base_url": "https://api.openai.com/v1",
+  "temperature": 0.7
+}
 
-# 使用硅基流动 Kimi
-LLM_API_BASE = "https://api.siliconflow.cn/v1"
-LLM_MODEL = "moonshotai/Kimi-K2-Instruct-0905"
+{
+  "api_key": "your-api-key",
+  "model_id": "moonshotai/Kimi-K2-Instruct-0905",
+  "base_url": "https://api.siliconflow.cn/v1",
+  "temperature": 0.7
+}
 
-# 使用本地Ollama
-LLM_API_BASE = "http://localhost:11434/v1"
-LLM_MODEL = "llama2"
+{
+  "api_key": "ollama",
+  "model_id": "llama2",
+  "base_url": "http://localhost:11434/v1",
+  "temperature": 0.7
+}
 ```
 
 ---
@@ -1211,7 +1195,6 @@ from services.xray_engine import XrayEngine
 
 class POCLibraryService:
     def __init__(self):
-        self.nuclei_engine = NucleiEngine()
         self.xray_engine = XrayEngine()  # 添加Xray引擎
 
     def execute_poc(self, poc_id: int, target_url: str) -> Dict:
@@ -1220,7 +1203,7 @@ class POCLibraryService:
         if poc["poc_type"] == "python":
             return self._execute_python_poc(...)
         elif poc["poc_type"] == "nuclei":
-            return self.nuclei_engine.execute(...)
+            return nuclei_service.scan_single(target_url, poc["poc_file_path"])
         elif poc["poc_type"] == "xray":  # 添加xray路由
             return self.xray_engine.execute(...)
 ```
@@ -1261,18 +1244,14 @@ chmod -R 755 pocs/
 
 **错误信息**：`nuclei: command not found`
 
-**原因**：Nuclei未安装或不在PATH中
+**原因**：当前实现默认从项目根目录读取 `nuclei.exe`
 
 **解决方案**：
 ```bash
-# 安装Nuclei
-go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
-
-# 验证安装
-nuclei -version
-
-# 添加到PATH（如需要）
-export PATH=$PATH:~/go/bin
+# Windows
+# 1. 下载 nuclei 预编译版本
+# 2. 将 nuclei.exe 放到项目根目录
+# 3. 重新访问 /api/nuclei/status 检查状态
 ```
 
 ---
@@ -1281,13 +1260,12 @@ export PATH=$PATH:~/go/bin
 
 **错误信息**：`Timeout waiting for LLM response`
 
-**原因**：网络延迟或模型响应慢
+**原因**：网络延迟、API Key 无效、模型响应慢，或 Base URL/模型ID 配置错误
 
 **解决方案**：
-```python
-# config.py
-LLM_TIMEOUT = 180  # 增加超时时间到3分钟
-```
+- 检查前端页面中的 `API Key`、`模型ID`、`Base URL`
+- 调用 `GET /api/config/llm` 确认当前配置是否已生效
+- 必要时重新通过 `POST /api/config/llm` 更新配置
 
 ---
 
@@ -1313,7 +1291,7 @@ conn = sqlite3.connect(self.db_path, check_same_thread=False)
 
 1. **检查服务器是否启动**
 ```bash
-curl http://127.0.0.1:8000/api/health
+curl http://127.0.0.1:8000/api/pocs/statistics
 ```
 
 2. **检查CORS配置**
@@ -1351,7 +1329,7 @@ CREATE INDEX idx_create_time ON poc_records(create_time DESC);
 -- 定期清理旧POC
 DELETE FROM poc_records
 WHERE create_time < date('now', '-90 days')
-AND success_count = 0 AND fail_count = 0;
+AND last_used IS NULL;
 ```
 
 ### 前端优化
@@ -1382,12 +1360,8 @@ async function getPOCDetail(pocId) {
 
 ### 生产环境部署
 
-1. **使用环境变量管理敏感信息**
-```bash
-# .env
-LLM_API_KEY=secret-key-here
-DATABASE_URL=postgresql://user:pass@host/db
-```
+1. **限制配置文件权限**
+`pocs/llm_config.json` 当前会持久化 LLM 配置，部署时应限制该文件的读写权限，避免敏感信息泄露。
 
 2. **添加认证中间件**
 ```python
