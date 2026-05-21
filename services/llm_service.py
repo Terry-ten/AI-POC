@@ -20,6 +20,8 @@ DEFAULT_LLM_CONFIG = {
     "max_tokens": None
 }
 
+LLM_REQUEST_TIMEOUT_SECONDS = 180
+
 
 class LLMService:
     """大模型API调用服务"""
@@ -54,7 +56,8 @@ class LLMService:
         # 初始化 AsyncOpenAI 客户端（兼容硅基流动API）
         self.client = AsyncOpenAI(
             api_key=self.api_key,
-            base_url=self.api_base
+            base_url=self.api_base,
+            timeout=LLM_REQUEST_TIMEOUT_SECONDS,
         )
 
         saved_review_config = self._load_json_config(self.review_config_file)
@@ -185,7 +188,8 @@ class LLMService:
         # 重新初始化客户端
         self.client = AsyncOpenAI(
             api_key=self.api_key,
-            base_url=self.api_base
+            base_url=self.api_base,
+            timeout=LLM_REQUEST_TIMEOUT_SECONDS,
         )
 
         logger.info("✅ LLM客户端已重新初始化并保存配置")
@@ -385,21 +389,24 @@ def scan(url):
         target_section = f"\n目标系统信息：{target_info}\n" if target_info else ""
         result_json = json.dumps(initial_result, ensure_ascii=False, indent=2)
         return f"""你是Web漏洞POC审核专家。你会对初稿POC做二次审核，只关注是否有明显逻辑错误、验证条件过窄、平台helper使用错误、执行模式判断错误。
-
-要求：
-- 你必须返回严格JSON
-- 输出结构必须与初次生成完全一致
-- 如果初稿没有明显问题，也必须返回等价且可直接使用的最终版本
-- 如果要改进，直接输出改进后的最终版，不要输出diff
-- 优先保持当前系统约束：默认仍是单POC、url_only/direct/oob/manual_guide 三种模式
-- 若使用 OOB helper，不要吞掉初始化异常，应把真实异常写入 reason 或 details
-
-原始漏洞信息：
-{vulnerability_info}
+  
+  要求：
+  - 你必须返回严格JSON
+  - 输出结构必须与初次生成完全一致
+  - 如果初稿没有明显问题，也必须返回等价且可直接使用的最终版本
+  - 如果要改进，直接输出改进后的最终版，不要输出diff
+  - 审核遵循“最小必要修改”原则；除非明确发现逻辑错误，不要重写整个触发链
+  - 优先保持当前系统约束：默认仍是单POC、url_only/direct/oob/manual_guide 三种模式
+  - 如果初稿已经给出与具体组件/接口/参数位强相关的高置信触发点（如特定查询参数、特定接口路径、特定表单字段），优先保留这些触发点，不要泛化成更宽但更弱的通用方案
+  - 不要把已存在的参数注入、路径注入、接口参数注入方案，随意改成仅依赖通用 Header 注入的方案；只有漏洞信息明确表明 Header 才是主要触发位时才允许这样修改
+  - 如果初稿已经选择了明确的 OOB 协议或触发路径，不要无根据地扩展成多协议并行探测
+  - 若使用 OOB helper，不要吞掉初始化异常，应把真实异常写入 reason 或 details
+  - 若使用 OOB helper，不要在 client.verify() 外再额外手写长轮询或重复重试循环，平台 helper 已负责轮询
+  - 审核目标是修正明显错误并保留已验证有效的思路，不要为了“更通用”而降低对当前场景的命中概率
+  
+  原始漏洞信息：
+  {vulnerability_info}
 {target_section}
-第一次发送给大模型的提示词：
-{initial_prompt}
-
 第一次大模型生成结果：
 {result_json}
 
@@ -556,7 +563,11 @@ def scan(url):
             logger.info(f"Max Tokens: {max_tokens}")
             logger.info(f"Prompt 长度: {len(prompt)} 字符")
 
-            client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+            client = AsyncOpenAI(
+                api_key=api_key,
+                base_url=base_url,
+                timeout=LLM_REQUEST_TIMEOUT_SECONDS,
+            )
             api_params = {
                 "model": model,
                 "messages": [

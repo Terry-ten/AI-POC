@@ -2,8 +2,12 @@
 // 全新POC库管理 JavaScript
 // ========================================
 
-// API配置 - 使用全局LIB_API_BASE或默认值
-const LIB_API_BASE = window.LIB_API_BASE || 'http://127.0.0.1:8000';
+// API配置 - 默认跟随当前页面来源，兼容 8000/8123 等不同启动端口
+const LIB_API_BASE = window.LIB_API_BASE
+    || window.API_BASE_URL
+    || (window.location && window.location.origin && window.location.origin !== 'null'
+        ? window.location.origin
+        : 'http://127.0.0.1:8000');
 
 // POC库状态管理
 const LibraryState = {
@@ -1200,9 +1204,16 @@ async function loadAssetSourceConfig() {
     }
 }
 
+const ASSET_PROVIDER_DEFAULT_BASE_URLS = {
+    fofa: 'https://fofa.info/api/v1',
+    hunter: 'https://hunter.qianxin.com/openApi/search',
+    quake: 'https://quake.360.net/api/v3',
+};
+
 function applyAssetSourceProviderConfig(provider, config) {
     const emailInput = document.getElementById('asset-email-input');
     const tokenInput = document.getElementById('asset-token-input');
+    const baseUrlInput = document.getElementById('asset-base-url-input');
     const emailLabel = document.getElementById('asset-email-label');
     const summary = document.getElementById('asset-import-summary');
 
@@ -1218,11 +1229,15 @@ function applyAssetSourceProviderConfig(provider, config) {
     if (tokenInput) {
         tokenInput.value = providerConfig.token || '';
     }
+    if (baseUrlInput) {
+        baseUrlInput.value = providerConfig.base_url || ASSET_PROVIDER_DEFAULT_BASE_URLS[provider] || '';
+        baseUrlInput.placeholder = `默认：${ASSET_PROVIDER_DEFAULT_BASE_URLS[provider] || '平台 API 地址'}`;
+    }
     if (summary) {
         const preview = provider === 'fofa'
             ? `邮箱：${providerConfig.email_preview || '未设置'} ｜ Token：${providerConfig.token_preview || '未设置'}`
             : `Token：${providerConfig.token_preview || '未设置'}`;
-        summary.textContent = `当前 ${provider.toUpperCase()} 配置：${preview}`;
+        summary.textContent = `当前 ${provider.toUpperCase()} 配置：${preview} ｜ API：${providerConfig.base_url || ASSET_PROVIDER_DEFAULT_BASE_URLS[provider] || '未设置'}`;
     }
 }
 
@@ -1230,6 +1245,7 @@ async function saveAssetSourceConfig() {
     const provider = document.getElementById('asset-provider-select').value;
     const email = document.getElementById('asset-email-input').value.trim();
     const token = document.getElementById('asset-token-input').value.trim();
+    const baseUrl = document.getElementById('asset-base-url-input')?.value.trim();
 
     try {
         const response = await fetch(`${LIB_API_BASE}/api/config/asset-sources`, {
@@ -1239,7 +1255,7 @@ async function saveAssetSourceConfig() {
                 provider,
                 email: provider === 'fofa' ? (email || null) : null,
                 token: token || null,
-                base_url: null,
+                base_url: baseUrl || null,
             }),
         });
         const data = await response.json();

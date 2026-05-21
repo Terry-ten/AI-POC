@@ -204,13 +204,21 @@ class InteractshClient(BaseOOBClient):
                 poll_url = f"http://{self.server}/poll?id={self.correlation_id}&secret={self.secret}"
                 response = self.session.get(poll_url, headers=self.headers, timeout=10, verify=False)
                 response.raise_for_status()
-                payload = response.json()
-                decrypted = [
-                    self._decrypt_data(payload["aes_key"], item)
-                    for item in payload.get("data", [])
-                ]
+                payload = response.json() or {}
+                encrypted_items = payload.get("data") or []
+                if not isinstance(encrypted_items, list):
+                    encrypted_items = [encrypted_items] if encrypted_items else []
+
+                aes_key = payload.get("aes_key")
+                decrypted = []
+                if aes_key and encrypted_items:
+                    decrypted = [
+                        self._decrypt_data(aes_key, item)
+                        for item in encrypted_items
+                        if item
+                    ]
                 events = decrypted
-                if any(flag.lower() in item.get("full-id", "").lower() for item in decrypted):
+                if any(flag.lower() in json.dumps(item, ensure_ascii=False).lower() for item in decrypted):
                     return {"matched": True, "events": events, "error": None}
             except Exception as exc:
                 logger.warning("Interactsh 轮询失败: %s", exc)

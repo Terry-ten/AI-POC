@@ -55,6 +55,27 @@ class AssetSourceServiceTests(unittest.TestCase):
         client = FofaClient("demo@example.com", "token", "https://fofa.info/api/v1", session=session, sleep_func=lambda _: None)
         results = client.search('body="ecshop"', pages=1)
         self.assertEqual(results, ["https://demo.example.com", "http://raw.example.com"])
+        self.assertEqual(session.calls[0][1], "https://fofa.info/api/v1/search/all")
+        self.assertEqual(session.calls[0][2]["params"]["fields"], "protocol,host")
+
+    def test_fofa_client_accepts_full_search_endpoint(self):
+        session = FakeSession([FakeResponse({"results": [["https", "third.example.com"]]})])
+        client = FofaClient(
+            "demo@example.com",
+            "token",
+            "https://third-party.example/api/v1/search/all",
+            session=session,
+            sleep_func=lambda _: None,
+        )
+        results = client.search('body="ecshop"', pages=1)
+        self.assertEqual(results, ["https://third.example.com"])
+        self.assertEqual(session.calls[0][1], "https://third-party.example/api/v1/search/all")
+
+    def test_fofa_client_raises_api_error_message(self):
+        session = FakeSession([FakeResponse({"error": True, "errmsg": "[820031] F点余额不足"})])
+        client = FofaClient("demo@example.com", "token", "https://fofa.info/api/v1", session=session, sleep_func=lambda _: None)
+        with self.assertRaisesRegex(RuntimeError, "F点余额不足"):
+            client.search('body="ecshop"', pages=1)
 
     def test_hunter_client_returns_urls(self):
         session = FakeSession([FakeResponse({"code": 200, "data": {"arr": [{"url": "http://hunter.example.com"}]}})])

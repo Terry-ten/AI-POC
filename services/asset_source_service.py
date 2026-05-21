@@ -73,18 +73,33 @@ class FofaClient:
         self.session = session or requests.Session()
         self.sleep_func = sleep_func or time.sleep
 
+    def _search_endpoint(self) -> str:
+        if self.base_url.endswith("/search/all"):
+            return self.base_url
+        return f"{self.base_url}/search/all"
+
     def search(self, query: str, pages: int = 1) -> List[str]:
         qbase64 = base64.b64encode(query.encode("utf-8")).decode("utf-8")
         results = []
         seen = set()
+        endpoint = self._search_endpoint()
         for page in range(1, max(pages, 1) + 1):
-            url = (
-                f"{self.base_url}/search/all?email={self.email}&key={self.token}"
-                f"&qbase64={qbase64}&fields=protocol,host&page={page}"
+            response = self.session.get(
+                endpoint,
+                params={
+                    "email": self.email,
+                    "key": self.token,
+                    "qbase64": qbase64,
+                    "fields": "protocol,host",
+                    "page": page,
+                },
+                timeout=30,
             )
-            response = self.session.get(url, timeout=30)
             response.raise_for_status()
             payload = response.json()
+            if payload.get("error"):
+                message = payload.get("errmsg") or "未知错误"
+                raise RuntimeError(f"FOFA 查询失败: {message}")
             for row in payload.get("results", []):
                 protocol = row[0] or "http"
                 host = row[1]

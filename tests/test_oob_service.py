@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from services.oob_service import CEyeClient, OOBService, load_interactsh_crypto_backend
+from services.oob_service import CEyeClient, InteractshClient, OOBService, load_interactsh_crypto_backend
 from services.poc_library_service import PocLibraryService
 
 
@@ -27,6 +27,12 @@ class FakeSession:
     def __init__(self, responses):
         self.responses = list(responses)
         self.calls = []
+
+    def post(self, url, **kwargs):
+        self.calls.append(("POST", url, kwargs))
+        if not self.responses:
+            raise RuntimeError("no response prepared")
+        return self.responses.pop(0)
 
     def get(self, url, **kwargs):
         self.calls.append(("GET", url, kwargs))
@@ -95,6 +101,14 @@ class OOBServiceTests(unittest.TestCase):
         self.assertEqual(len(result["events"]), 1)
 
     def test_interactsh_crypto_backend_falls_back_to_crypto_namespace(self):
+        try:
+            importlib.import_module("Crypto.Cipher.AES")
+            importlib.import_module("Crypto.Cipher.PKCS1_OAEP")
+            importlib.import_module("Crypto.Hash.SHA256")
+            importlib.import_module("Crypto.PublicKey.RSA")
+        except ImportError:
+            self.skipTest("Crypto 命名空间依赖未安装")
+
         real_import_module = importlib.import_module
 
         def fake_import_module(name, package=None):
@@ -116,6 +130,29 @@ class OOBServiceTests(unittest.TestCase):
         self.assertTrue(callable(pkcs1_oaep.new))
         self.assertTrue(callable(sha256.new))
         self.assertTrue(callable(rsa.generate))
+
+    def test_interactsh_verify_handles_null_data_without_exception(self):
+        try:
+            load_interactsh_crypto_backend()
+        except ImportError:
+            self.skipTest("Interactsh 依赖未安装")
+
+        session = FakeSession([
+            FakeResponse({}, status_code=200),
+            FakeResponse({"aes_key": "ignored", "data": None}, status_code=200),
+        ])
+
+        client = InteractshClient(
+            server="oast.me",
+            session=session,
+            sleep_func=lambda _: None,
+            max_polls=1,
+        )
+
+        result = client.verify("flag1234", protocol="dns")
+
+        self.assertFalse(result["matched"])
+        self.assertEqual(result["events"], [])
 
     def test_get_runtime_status_reports_interactsh_dependency_state(self):
         with tempfile.TemporaryDirectory() as temp_dir:

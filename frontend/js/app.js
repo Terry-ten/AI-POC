@@ -2,7 +2,10 @@
 // 全局变量和配置
 // ========================================
 
-const API_BASE_URL = 'http://127.0.0.1:8000';
+const API_BASE_URL = window.API_BASE_URL
+    || (window.location && window.location.origin && window.location.origin !== 'null'
+        ? window.location.origin
+        : 'http://127.0.0.1:8000');
 const API_ENDPOINT = `${API_BASE_URL}/api/generate-poc`;
 const POC_LIBRARY_ENDPOINT = `${API_BASE_URL}/api/pocs`;
 const API_CONFIG_ENDPOINT = `${API_BASE_URL}/api/config`;
@@ -10,6 +13,7 @@ const REVIEW_LLM_CONFIG_ENDPOINT = `${API_BASE_URL}/api/config/review-llm`;
 
 // 暴露API_BASE_URL到全局
 window.API_BASE_URL = API_BASE_URL;
+window.LIB_API_BASE = window.LIB_API_BASE || API_BASE_URL;
 
 // ========================================
 // DOM元素引用

@@ -90,6 +90,30 @@ class LLMOOBPromptTests(unittest.TestCase):
         self.assertIn("\n\ndef scan(url):\n", parsed["poc_code"])
         self.assertNotIn("\\n", parsed["poc_code"])
 
+    def test_review_prompt_emphasizes_preserving_strong_trigger_points(self):
+        prompt = self.service._build_review_prompt(
+            "Apache Solr 存在 Log4j2 JNDI 注入",
+            "目标暴露 /solr/admin/cores 接口",
+            "SHOULD_NOT_BE_INCLUDED_IN_REVIEW_PROMPT",
+            {
+                "verifiable": True,
+                "vulnerability_name": "Demo",
+                "vulnerability_type": "RCE",
+                "original_vulnerability_info": "demo",
+                "execution_mode": "url_only",
+                "verification_method": "oob",
+                "input_schema": None,
+                "poc_code": "def scan(url):\n    return {}",
+                "explanation": "demo",
+            },
+        )
+
+        self.assertIn("最小必要修改", prompt)
+        self.assertIn("高置信触发点", prompt)
+        self.assertIn("不要把已存在的参数注入、路径注入、接口参数注入方案", prompt)
+        self.assertIn("不要在 client.verify() 外再额外手写长轮询", prompt)
+        self.assertNotIn("SHOULD_NOT_BE_INCLUDED_IN_REVIEW_PROMPT", prompt)
+
 
 if __name__ == "__main__":
     unittest.main()

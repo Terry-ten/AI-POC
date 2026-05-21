@@ -76,7 +76,9 @@ class SecondReviewFlowTests(unittest.TestCase):
         self.assertEqual(captured["model"], "review-model")
         self.assertEqual(captured["base_url"], "https://review.example/v1")
         self.assertEqual(captured["api_key"], "sk-review")
-        self.assertIn("INITIAL PROMPT", captured["prompt"])
+        self.assertNotIn("INITIAL PROMPT", captured["prompt"])
+        self.assertIn("demo vuln", captured["prompt"])
+        self.assertIn("Initial Demo", captured["prompt"])
 
     def test_generate_route_applies_second_review_when_enabled(self):
         initial_result = {
