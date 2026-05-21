@@ -79,6 +79,7 @@ pocs/metadata/*.json
 pocs/llm_config.json
 pocs/oob_config.json
 pocs/review_llm_config.json
+pocs/asset_source_config.json
 pocs/batch_results/
 pocs/metadata/last_llm_response*.json
 pocs/metadata/last_llm_response*.txt

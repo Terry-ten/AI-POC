@@ -127,6 +127,18 @@ services/nuclei_service.py       # Nuclei扫描与模板服务
 
 ## 🏗️ 模块架构
 
+### 关于 `nuclei.exe`
+
+仓库源码默认不提交 `nuclei.exe`。该文件是 Nuclei 官方扫描器的 Windows 二进制程序，体积较大，且属于外部工具依赖，不适合直接放入 Git 普通源码仓库。
+
+如果只拉取源码，需要自行准备 Nuclei：
+
+1. 从 ProjectDiscovery / Nuclei 官方渠道下载 Windows 版本。
+2. 将 `nuclei.exe` 放到项目根目录。
+3. 启动项目后，在 Nuclei 页面或 `/api/nuclei/status` 检查是否可用。
+
+如果使用 GitHub Release 附件中的便携包，则压缩包内已包含 `nuclei.exe`，解压后可直接通过启动脚本体验 Nuclei 模板浏览和扫描任务功能。
+
 ### 完整目录结构
 
 ```
